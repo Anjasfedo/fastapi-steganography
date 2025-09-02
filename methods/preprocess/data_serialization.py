@@ -17,7 +17,7 @@ def serialize_record(record: dict, field_order: list[str]) -> str:
     field_values = [str(record.get(key, '')) for key in field_order]
     
     merged = '#'.join(field_values)
-    return merged.replace(' ', '%')
+    return merged.replace(' ', '%') + '#'
 
 
 def serialize_multiple_records(records: list[dict], field_order: list[str]) -> list[str]:
@@ -52,4 +52,32 @@ def deserialize_record(record_string: str, field_order: list[str]) -> dict:
         return dict(zip(field_order, values))
     except Exception:
         # Kembalikan dict kosong jika ada error saat parsing
+        return {}
+    
+def deserialize_padded_record(padded_string: str, field_order: list[str]) -> dict:
+    """
+    Mengubah string panjang yang di-padding dan di-serialize kembali menjadi
+    satu dictionary data. Fungsi ini akan memotong data padding secara otomatis.
+
+    Args:
+        padded_string (str): String panjang yang berisi data asli diikuti padding.
+        field_order (list[str]): List of string yang menentukan urutan field.
+
+    Returns:
+        dict: Dictionary yang berisi data KTP pertama yang ditemukan.
+    """
+    try:
+        # Hapus spasi kosong di awal/akhir dan ganti '%'
+        unpacked_string = padded_string.strip().replace('%', ' ')
+        
+        # Pisahkan seluruh string menjadi list nilai-nilai
+        all_values = unpacked_string.split('#')
+        
+        # Ambil hanya nilai yang dibutuhkan untuk satu record
+        num_fields = len(field_order)
+        single_record_values = all_values[:num_fields]
+        
+        # Gabungkan field dengan nilainya untuk membuat dictionary
+        return dict(zip(field_order, single_record_values))
+    except Exception:
         return {}

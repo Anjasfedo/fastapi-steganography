@@ -19,7 +19,8 @@ celery.conf.imports = (
     "tasks.lossless_compression.lzw",
     "tasks.lossless_compression.huffman_coding",
     
-    "tasks.experiments.lsb"
+    "tasks.experiments.lsb",
+    "tasks.experiments.eceg_lsb",
     )
 
 # Reasonable defaults

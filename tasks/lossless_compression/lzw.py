@@ -35,7 +35,7 @@ def decompress_task(self, *, compressed_bits: str):
         
         self.update_state(meta={"stage": "metrics", "progress": 70})
         
-        original_size = len(decompressed_data.encode('utf-8'))
+        original_size = len(decompressed_data) * 8
         compressed_size = len(compressed_bits)
         
         # Panggil kelas metrik dengan nilai BYTES yang benar
