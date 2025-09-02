@@ -1,0 +1,15 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env/
+.venv/
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+
+.env
