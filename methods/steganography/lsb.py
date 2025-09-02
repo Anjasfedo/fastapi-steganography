@@ -15,12 +15,8 @@ class LeastSignificantBit:
 
     def calculate_max_message_size(self, image_path):
         """
-        Calculate the maximum number of characters that can be stored in an image
-        using the dynamic encoding method.
-
-        Returns:
-            max_chars (int): The maximum number of characters that can be stored.
-            max_bits (int): The total number of usable bits for message storage.
+        Menghitung jumlah maksimum karakter yang dapat disimpan dalam gambar,
+        dengan mempertimbangkan 32-bit header untuk informasi panjang pesan.
         """
         image = Image.open(image_path)
         img_data = np.array(image)
@@ -28,13 +24,21 @@ class LeastSignificantBit:
         height, width, channels = img_data.shape
         total_capacity_bits = height * width * channels * self.k_val
 
+        # --- PERUBAHAN UTAMA DI SINI ---
+        # Alokasikan 32 bit untuk menyimpan panjang pesan (length header)
+        HEADER_SIZE_BITS = 32
+        
+        # Kapasitas yang bisa digunakan untuk pesan adalah total dikurangi header
+        usable_bits = total_capacity_bits - HEADER_SIZE_BITS
+        
+        # Pastikan kita tidak mendapatkan nilai negatif jika gambar terlalu kecil
+        if usable_bits < 0:
+            usable_bits = 0
+            
+        # Jumlah karakter dihitung dari bit yang bisa digunakan
+        max_chars = usable_bits // 8
 
-        max_chars = total_capacity_bits // 8
-
-        max_bits = total_capacity_bits
-
-
-        return max_chars, max_bits
+        return max_chars, usable_bits
 
     def message_to_bits(self, message_bits):
         """

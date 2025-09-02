@@ -25,7 +25,12 @@ async def generate_keys():
             "check": f"/tasks/{task.id}",
         })
     except Exception as e:
-        return api_response(status=False, message="Key generation failed", error=str(e))
+        return api_response(
+            status=False, 
+            message="An unexpected server error occurred", 
+            error=str(e),
+            status_code=500 # Internal Server Error
+        )
 
 @router.post("/encrypt")
 async def encrypt_message(request: EncryptionRequest):
@@ -39,7 +44,12 @@ async def encrypt_message(request: EncryptionRequest):
             "check": f"/tasks/{task.id}",
         })
     except Exception as e:
-        return api_response(status=False, message="Encryption failed", error=str(e))
+        return api_response(
+            status=False, 
+            message="An unexpected server error occurred", 
+            error=str(e),
+            status_code=500 # Internal Server Error
+        )
 
 @router.post("/decrypt")
 async def decrypt_message(request: DecryptionRequest):
@@ -53,4 +63,9 @@ async def decrypt_message(request: DecryptionRequest):
             "check": f"/tasks/{task.id}",
         })
     except Exception as e:
-        return api_response(status=False, message="Decryption failed", error=str(e))
+        return api_response(
+            status=False, 
+            message="An unexpected server error occurred", 
+            error=str(e),
+            status_code=500 # Internal Server Error
+        )

@@ -32,7 +32,14 @@ async def compress(request: CompressionRequest):
 @router.post("/lzw/decompress")
 async def decompress(request: DecompressionRequest):
     try:
-        # Enqueue Celery decompress task
+        if not request.compressed_bits.isdigit() or not all(c in '01' for c in request.compressed_bits):
+            return api_response(
+                status=False,
+                message="Invalid Input",
+                error="Parameter 'compressed_bits' harus berupa string yang hanya berisi '0' dan '1'.",
+                status_code=422 # Unprocessable Entity
+            )
+        
         task = lzw_decompress_task.delay(compressed_bits=request.compressed_bits)
 
         return api_response(data={
@@ -55,18 +62,33 @@ async def compress(request: CompressionRequest):
             "check": f"/tasks/{task.id}",
         })
     except Exception as e:
-        return api_response(status=False, message="Compression failed", error=str(e))
-    
-
+        return api_response(
+            status=False, 
+            message="An unexpected server error occurred", 
+            error=str(e),
+            status_code=500 # Internal Server Error
+        )
 
 @router.post("/huffman-coding/decompress")
-async def decompress(encoded_bits: str = Form(..., description="Encoded bits"), codebook_file: UploadFile = File(..., description="Codebook file")):
+async def decompress(
+    encoded_bits: str = Form(..., description="String biner yang di-encode ('0' dan '1')"), 
+    codebook_file: UploadFile = File(..., description="File codebook .json")
+):
     try:
+        # --- PERBAIKAN UTAMA DI SINI ---
+        # 1. Validasi input encoded_bits sebelum melakukan apa pun
+        if not encoded_bits.isdigit() or not all(c in '01' for c in encoded_bits):
+            return api_response(
+                status=False,
+                message="Invalid Input",
+                error="Parameter 'encoded_bits' harus berupa string yang hanya berisi '0' dan '1'.",
+                status_code=422 # Unprocessable Entity
+            )
         codebook_bytes = await codebook_file.read()
         codebook_name = codebook_file.filename or "codebook.json"
                 
         job_id = uuid4().hex
-        prefix = f"lossless-compression/huffman-coding/{job_id}"
+        prefix = f"lossless-compression/huffman-coding/codebook/{job_id}"
 
         # Upload codebook image to S3
         codebook_key = upload_bytes_and_get_key(
@@ -86,4 +108,9 @@ async def decompress(encoded_bits: str = Form(..., description="Encoded bits"), 
             "check": f"/tasks/{task.id}",
         })
     except Exception as e:
-        return api_response(status=False, message="Decompression failed", error=str(e))
+        return api_response(
+            status=False, 
+            message="An unexpected server error occurred", 
+            error=str(e),
+            status_code=500 # Internal Server Error
+        )

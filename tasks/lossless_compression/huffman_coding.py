@@ -6,7 +6,7 @@ from s3.utils import upload_bytes_and_get_key, presign_get_url, download_to_tmp
 from s3.main import S3_BUCKET
 from helpers.response_wrapper import api_response
 from methods.lossless_compression.huffman_coding import HuffmanCoding  # Assuming HuffmanCoding class is already defined
-
+from methods.lossless_compression.metrics import CompressionMetrics
 
 # Create an instance of HuffmanCoding
 huffman_coding = HuffmanCoding()
@@ -65,17 +65,23 @@ def decompress_task(self, *, file_key: str, encoded_bits: str):
         
         with open(codebook_path, 'r') as file:
             codebook = json.load(file)
+            
+
 
         # Step 2: Rebuild the Huffman tree from the codebook
         huffman_tree = HuffmanCoding.build_huffman_tree_from_codebook(codebook)
-
+        # HuffmanCoding.print_tree(huffman_tree)
+        print(encoded_bits)
         # Step 3: Decode the bitstring using the Huffman tree
         decoded_message = HuffmanCoding.decode(encoded_bits, huffman_tree)
-
+        
+        self.update_state(meta={"stage": "metrics", "progress": 70})
+        
         # Step 4: Return the decoded message
         self.update_state(meta={"stage": "finalizing", "progress": 95})
         return {
-            "decoded_message": decoded_message
+            "decoded_message": decoded_message,
+
         }
     except Exception as e:
         self.update_state(state="FAILURE", meta={

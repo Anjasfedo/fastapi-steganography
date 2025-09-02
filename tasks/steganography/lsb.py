@@ -86,9 +86,9 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
         return {
             "message": message,
             "metrics": {
-                "mse": float(mse),
+                "mse": float(mse)  if mse != float("inf") else "inf",
                 "psnr": float(psnr) if psnr != float("inf") else "inf",
-                "ssim": float(ssim),
+                "ssim": float(ssim)  if ssim != float("inf") else "inf",
             },
             "k_val": k_val,
             "stego_key": stego_key,

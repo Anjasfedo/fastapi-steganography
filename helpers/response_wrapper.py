@@ -1,21 +1,25 @@
 from fastapi.responses import JSONResponse
 
-def api_response(data=None, message="Success", status=True, error=None):
+def api_response(data=None, message="Success", status=True, error=None, status_code: int = 200):
     """
-    Standardizes the response format for the API.
+    Menstandardisasi format respons untuk API.
 
-    Args:
-    - data: The main data to return (default: None).
-    - message: A message describing the result (default: "Success").
-    - status: Boolean indicating success or failure (default: True).
-    - error: Optional error message (default: None).
+    Args: 
+    - data: Data utama yang akan dikembalikan.
+    - message: Pesan yang mendeskripsikan hasil.
+    - status: Boolean yang menunjukkan keberhasilan atau kegagalan.
+    - error: Pesan error opsional.
+    - status_code: Kode status HTTP untuk respons (default: 200).
     
     Returns:
-    - JSONResponse: A standardized JSON response.
+    - JSONResponse: Respons JSON yang terstandardisasi.
     """
-    return JSONResponse({
-        "status": status,
-        "message": message,
-        "data": data,
-        "error": error,
-    })
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": status,
+            "message": message,
+            "data": data,
+            "error": error,
+        }
+    )

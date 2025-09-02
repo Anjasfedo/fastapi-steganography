@@ -43,6 +43,14 @@ class HuffmanCoding:
         if node is None:
             return codebook
 
+        # --- PERBAIKAN UTAMA DI SINI ---
+        # Menangani kasus di mana input hanya punya 1 jenis karakter
+        # (pohon hanya terdiri dari satu node)
+        if node.char is not None and node.left is None and node.right is None:
+            codebook[node.char] = prefix if prefix else '0'
+            return codebook
+
+        # Lanjutkan rekursi seperti biasa untuk pohon normal
         if node.char is not None:
             codebook[node.char] = prefix
         else:
@@ -108,3 +116,35 @@ class HuffmanCoding:
             node.char = char
 
         return huffman_tree
+    
+    @staticmethod
+    def print_tree(node):
+        """Mencetak representasi visual dari Huffman tree."""
+        if not node:
+            print("Pohon kosong.")
+            return
+
+        def _print_recursive(current_node, prefix, is_last):
+            """Fungsi pembantu rekursif untuk mencetak pohon."""
+            if current_node:
+                # Tentukan teks yang akan ditampilkan untuk node saat ini
+                if current_node.char:
+                    display_text = f"'{current_node.char}' (freq: {current_node.freq})"
+                else:
+                    display_text = f"(internal) (freq: {current_node.freq})"
+                
+                # Cetak baris untuk node saat ini
+                print(prefix + ("└── " if is_last else "├── ") + display_text)
+                
+                # Siapkan prefix untuk anak-anaknya
+                child_prefix = prefix + ("    " if is_last else "│   ")
+                
+                # Proses anak-anak (pastikan mereka ada)
+                children = [child for child in [current_node.left, current_node.right] if child]
+                
+                for i, child in enumerate(children):
+                    is_child_last = (i == len(children) - 1)
+                    _print_recursive(child, child_prefix, is_child_last)
+
+        # Panggilan awal untuk root node
+        _print_recursive(node, "", True)
