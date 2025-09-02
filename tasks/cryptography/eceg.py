@@ -1,5 +1,5 @@
-from celery_app import celery
-from cryptography.eceg import EllipticCurveElGamal  # Assuming this is your cryptographic algorithm
+from main_celery import celery
+from methods.cryptography.eceg import EllipticCurveElGamal  # Assuming this is your cryptographic algorithm
 from helpers.response_wrapper import api_response
 
 # Initialize your cryptographic class
@@ -17,8 +17,12 @@ def generate_keys_task(self):
             "public_key": public_key
         }
     except Exception as e:
-        self.update_state(state="FAILURE", meta={"progress": 100})
-        return {"error": str(e)}
+        self.update_state(state="FAILURE", meta={
+            "exc_type": type(e).__name__, 
+            "exc_message": str(e),
+            "progress": 100
+        })
+        raise e
 
 @celery.task(name="tasks.cryptography.eceg.encrypt_task", bind=True)
 def encrypt_task(self, *, message: str, public_key: int):
@@ -33,8 +37,12 @@ def encrypt_task(self, *, message: str, public_key: int):
             "encrypted_message": encrypted_message
         }
     except Exception as e:
-        self.update_state(state="FAILURE", meta={"progress": 100})
-        return {"error": str(e)}
+        self.update_state(state="FAILURE", meta={
+            "exc_type": type(e).__name__, 
+            "exc_message": str(e),
+            "progress": 100
+        })
+        raise e
 
 @celery.task(name="tasks.cryptography.eceg.decrypt_task", bind=True)
 def decrypt_task(self, *, ciphertext: str, private_key: int):
@@ -49,5 +57,9 @@ def decrypt_task(self, *, ciphertext: str, private_key: int):
             "decrypted_message": decrypted_message
         }
     except Exception as e:
-        self.update_state(state="FAILURE", meta={"progress": 100})
-        return {"error": str(e)}
+        self.update_state(state="FAILURE", meta={
+            "exc_type": type(e).__name__, 
+            "exc_message": str(e),
+            "progress": 100
+        })
+        raise e

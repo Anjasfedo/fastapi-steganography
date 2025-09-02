@@ -13,7 +13,12 @@ celery = Celery(
     backend=REDIS_URL,  # store results in Redis so API can fetch them
 )
 
-celery.conf.imports = ("tasks.steganography.lsb", "tasks.cryptography.eceg")
+celery.conf.imports = (
+    "tasks.steganography.lsb", 
+    "tasks.cryptography.eceg", 
+    "tasks.lossless_compression.lzw",
+    "tasks.lossless_compression.huffman_coding"
+    )
 
 # Reasonable defaults
 celery.conf.update(

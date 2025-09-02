@@ -1,9 +1,9 @@
 import os
 import tempfile
-from celery_app import celery
-from steganography.lsb import LeastSignificantBit
+from main_celery import celery
+from methods.steganography.lsb import LeastSignificantBit
 from helpers.message_bit import message_to_bit, bit_to_message
-from steganography.metrics import StegoMetrics
+from methods.steganography.metrics import StegoMetrics
 import time
 from s3.main import S3_BUCKET, PRESIGN_TTL
 from s3.utils import download_to_tmp, upload_bytes_and_get_key, presign_get_url
@@ -50,8 +50,12 @@ def embed_task(self, *, cover_key: str, message: str, k_val: int, original_filen
             "note": "Use this k_val when extracting.",
         }
     except Exception as e:
-        self.update_state(state="FAILURE", meta={"progress": 100})
-        return {"error": str(e)}
+        self.update_state(state="FAILURE", meta={
+            "exc_type": type(e).__name__, 
+            "exc_message": str(e),
+            "progress": 100
+        })
+        raise e
     finally:
         for p in (cover_path, stego_out_path):
             try:
@@ -91,8 +95,12 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
             "original_key": original_key,
         }
     except Exception as e:
-        self.update_state(state="FAILURE", meta={"progress": 100})
-        return {"error": str(e)}
+        self.update_state(state="FAILURE", meta={
+            "exc_type": type(e).__name__, 
+            "exc_message": str(e),
+            "progress": 100
+        })
+        raise e
     finally:
         for p in (stego_path, original_path):
             try:
