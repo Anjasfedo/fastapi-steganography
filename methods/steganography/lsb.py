@@ -16,7 +16,7 @@ class LeastSignificantBit:
     def calculate_max_message_size(self, image_path):
         """
         Menghitung jumlah maksimum karakter yang dapat disimpan dalam gambar,
-        dengan mempertimbangkan 32-bit header untuk informasi panjang pesan.
+        dan melempar error jika kapasitas melebihi batas header 32-bit.
         """
         image = Image.open(image_path)
         img_data = np.array(image)
@@ -24,18 +24,25 @@ class LeastSignificantBit:
         height, width, channels = img_data.shape
         total_capacity_bits = height * width * channels * self.k_val
 
-        # --- PERUBAHAN UTAMA DI SINI ---
-        # Alokasikan 32 bit untuk menyimpan panjang pesan (length header)
         HEADER_SIZE_BITS = 32
-        
-        # Kapasitas yang bisa digunakan untuk pesan adalah total dikurangi header
         usable_bits = total_capacity_bits - HEADER_SIZE_BITS
-        
-        # Pastikan kita tidak mendapatkan nilai negatif jika gambar terlalu kecil
+
+        # --- PERUBAHAN UTAMA DI SINI ---
+        # Batas maksimum teoretis yang bisa dideskripsikan oleh header 32-bit
+        # (2**32 - 1, bukan 2**32 - 32)
+        MAX_BITS_SUPPORTED_BY_HEADER = (2**32) - 1
+
+        # 1. Periksa apakah kapasitas gambar melebihi batas header
+        if usable_bits > MAX_BITS_SUPPORTED_BY_HEADER:
+            raise ValueError(
+                f"Kapasitas gambar ({usable_bits} bit) melebihi batas maksimal "
+                f"yang didukung oleh header 32-bit ({MAX_BITS_SUPPORTED_BY_HEADER} bit)."
+            )
+
+        # 2. Jika tidak, lanjutkan seperti biasa
         if usable_bits < 0:
             usable_bits = 0
             
-        # Jumlah karakter dihitung dari bit yang bisa digunakan
         max_chars = usable_bits // 8
 
         return max_chars, usable_bits
@@ -82,7 +89,7 @@ class LeastSignificantBit:
 
         height, width, channels = img_data.shape
         max_chars, max_bits = self.calculate_max_message_size(input_image_path)
-        if len(message_bits) > max_bits:
+        if len(message_bits) - 32 > max_bits:
             raise ValueError(f"Message too long! max_bits: {max_bits} bits, Message: {len(message_bits)} bits.")
 
         bit_idx = 0

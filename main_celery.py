@@ -17,7 +17,9 @@ celery.conf.imports = (
     "tasks.steganography.lsb", 
     "tasks.cryptography.eceg", 
     "tasks.lossless_compression.lzw",
-    "tasks.lossless_compression.huffman_coding"
+    "tasks.lossless_compression.huffman_coding",
+    
+    "tasks.experiments.lsb"
     )
 
 # Reasonable defaults

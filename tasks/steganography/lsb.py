@@ -4,7 +4,6 @@ from main_celery import celery
 from methods.steganography.lsb import LeastSignificantBit
 from helpers.message_bit import message_to_bit, bit_to_message
 from methods.steganography.metrics import StegoMetrics
-import time
 from s3.main import S3_BUCKET, PRESIGN_TTL
 from s3.utils import download_to_tmp, upload_bytes_and_get_key, presign_get_url
 
@@ -25,9 +24,6 @@ def embed_task(self, *, cover_key: str, message: str, k_val: int, original_filen
         with open(stego_out_path, "rb") as f:
             stego_bytes = f.read()
 
-        # Put stego next to cover (same folder), but with "stego-" prefix
-        # cover_key like: steganography/{job_id}/cover-<name>
-        # derive folder prefix from cover_key when job_id not provided
         folder_prefix = cover_key.rsplit("/", 1)[0] if "/" in cover_key else "steganography"
         base = os.path.splitext(original_filename)[0]
         stego_name = f"stego-{base}.png"

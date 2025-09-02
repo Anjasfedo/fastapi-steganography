@@ -32,3 +32,24 @@ def serialize_multiple_records(records: list[dict], field_order: list[str]) -> l
         list[str]: List of string yang sudah diformat.
     """
     return [serialize_record(record, field_order) for record in records]
+
+
+def deserialize_record(record_string: str, field_order: list[str]) -> dict:
+    """
+    Mengubah satu string yang diformat khusus kembali menjadi dictionary.
+
+    Args:
+        record_string (str): String yang akan di-deserialize.
+        field_order (list[str]): List of string yang menentukan urutan field.
+
+    Returns:
+        dict: Dictionary yang berisi data KTP.
+    """
+    try:
+        # Lakukan proses kebalikannya: ganti '%' -> ' ', lalu pisah berdasarkan '#'
+        values = record_string.replace('%', ' ').split('#')
+        # Gabungkan urutan field dengan nilainya menggunakan zip
+        return dict(zip(field_order, values))
+    except Exception:
+        # Kembalikan dict kosong jika ada error saat parsing
+        return {}

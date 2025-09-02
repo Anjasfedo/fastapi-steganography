@@ -5,9 +5,8 @@ from s3.utils import upload_bytes_and_get_key
 from tasks.steganography.lsb import embed_task, extract_task
 import tempfile
 import os
-from methods.steganography.lsb import LeastSignificantBit # <-- Impor kelas LSB Anda
-from methods.preprocess.padding_data import pad_message_to_capacity
-
+from methods.steganography.lsb import LeastSignificantBit
+from helpers.human_readable import number_to_words_id
 
 router = APIRouter()
 
@@ -31,11 +30,19 @@ async def lsb_calculate_capacity(
         lsb = LeastSignificantBit(k_val=k_val)
         max_chars, max_bits = lsb.calculate_max_message_size(temp_file_path)
         
+        max_chars_in_words = number_to_words_id(max_chars)
+        
+        # 3. Format angka dengan pemisah ribuan (titik) untuk keterbacaan
+        formatted_max_chars = f"{max_chars:,}".replace(',', '.')
+
+        # 4. Buat string 'notes' yang sudah diperbarui
+        notes_string = f"Gambar ini dapat menampung hingga {formatted_max_chars} ({max_chars_in_words}) karakter."
+        
         return api_response(data={
             "max_characters": max_chars,
             "max_bits_payload": max_bits,
             "k_val": k_val,
-            "notes": f"Gambar ini dapat menampung hingga {max_chars} karakter."
+            "notes": notes_string # Gunakan string notes yang baru
         })
 
     except Exception as e:
@@ -45,55 +52,32 @@ async def lsb_calculate_capacity(
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
+
 @router.post("/lsb/embed")
 async def lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
-    message: str = Form(..., description="Message to hide"),
-    k_val: int = Form(4, ge=1, le=8, description="Number of LSBs to use (1-8)"),
-    fill_max_capacity: bool = Query(
-        default=False, 
-        description="Ulangi pesan untuk mengisi kapasitas maksimum gambar."
-    )
+    message: str = Form(..., description="Pesan final yang akan disembunyikan"),
+    k_val: int = Form(4, ge=1, le=8, description="Number of LSBs to use (1-8)")
 ):
+    """
+    Menyisipkan pesan final ke dalam cover image dan memulai background task.
+    """
     temp_file_path = None
     try:
         cover_bytes = await file.read()
         
-        # 1. Simpan file sementara untuk menghitung kapasitas
-        # Mendapatkan ekstensi file asli untuk file sementara
+        # Validasi server-side tetap PENTING sebagai pengaman
         file_extension = os.path.splitext(file.filename or ".png")[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
             temp_file.write(cover_bytes)
             temp_file_path = temp_file.name
-
-        # 2. Hitung kapasitas maksimum gambar
+        
         lsb = LeastSignificantBit(k_val=k_val)
         max_chars, _ = lsb.calculate_max_message_size(temp_file_path)
         
-        message_to_embed = message
-
-        if fill_max_capacity:
-            try:
-                # 2. Panggil fungsi helper untuk melakukan padding
-                message_to_embed = pad_message_to_capacity(message, max_chars)
-            except ValueError as e:
-                # 3. Tangkap error jika pesan kosong dan kembalikan respons API
-                return api_response(
-                    status=False,
-                    message="Validation Error",
-                    error=str(e),
-                    status_code=422
-                )
-
-        # 4. Validasi ukuran pesan sebelum mengirim ke task
-        if len(message_to_embed) > max_chars:
-            error_detail = f"Ukuran pesan ({len(message_to_embed)} karakter) melebihi kapasitas maksimum gambar ({max_chars} karakter) untuk k_val={k_val}."
-            return api_response(
-                status=False,
-                message="Payload Too Large",
-                error=error_detail,
-                status_code=413  # Payload Too Large
-            )
+        if len(message) > max_chars:
+            error_detail = f"Ukuran pesan ({len(message)} karakter) melebihi kapasitas maksimum gambar ({max_chars} karakter)."
+            return api_response(status=False, message="Payload Too Large", error=error_detail, status_code=413)
 
         # Proses unggah ke S3 dan panggil Celery seperti sebelumnya
         cover_name = file.filename or "cover.png"
@@ -106,7 +90,7 @@ async def lsb_embed(
 
         task = embed_task.delay(
             cover_key=cover_key,
-            message=message_to_embed, # Gunakan pesan yang sudah diolah
+            message=message, # Langsung gunakan pesan dari input
             k_val=k_val,
             original_filename=cover_name,
             job_id=job_id,
@@ -120,16 +104,9 @@ async def lsb_embed(
             "cover_key": cover_key,
             "notes": "Gunakan WebSocket atau /tasks/{id} untuk mendapatkan stego key & URL."
         })
-
     except Exception as e:
-        return api_response(
-            status=False, 
-            message="An unexpected server error occurred", 
-            error=str(e),
-            status_code=500 # Internal Server Error
-        )
+        return api_response(status=False, message="Embedding failed", error=str(e), status_code=500)
     finally:
-        # 5. Pastikan file sementara selalu dihapus
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
