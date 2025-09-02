@@ -8,7 +8,7 @@ import time
 from s3.main import S3_BUCKET, PRESIGN_TTL
 from s3.utils import download_to_tmp, upload_bytes_and_get_key, presign_get_url
 
-@celery.task(name="tasks.main.embed_task", bind=True)
+@celery.task(name="tasks.steganography.lsb.embed_task", bind=True)
 def embed_task(self, *, cover_key: str, message: str, k_val: int, original_filename: str = "cover.png", job_id: str | None = None):
     self.update_state(state="STARTED", meta={"stage": "downloading", "progress": 5})
     cover_path = stego_out_path = None
@@ -49,6 +49,9 @@ def embed_task(self, *, cover_key: str, message: str, k_val: int, original_filen
             "k_val": k_val,
             "note": "Use this k_val when extracting.",
         }
+    except Exception as e:
+        self.update_state(state="FAILURE", meta={"progress": 100})
+        return {"error": str(e)}
     finally:
         for p in (cover_path, stego_out_path):
             try:
@@ -58,7 +61,7 @@ def embed_task(self, *, cover_key: str, message: str, k_val: int, original_filen
                 pass
 
 
-@celery.task(name="tasks.main.extract_task", bind=True)
+@celery.task(name="tasks.steganography.lsb.extract_task", bind=True)
 def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
     self.update_state(state="STARTED", meta={"stage": "downloading", "progress": 5})
     stego_path = original_path = None
@@ -87,6 +90,9 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
             "stego_key": stego_key,
             "original_key": original_key,
         }
+    except Exception as e:
+        self.update_state(state="FAILURE", meta={"progress": 100})
+        return {"error": str(e)}
     finally:
         for p in (stego_path, original_path):
             try:

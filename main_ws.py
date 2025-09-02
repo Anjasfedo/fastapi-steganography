@@ -3,7 +3,7 @@ import json
 import sys
 import websockets
 
-WS_URL = "ws://127.0.0.1:5000/ws/tasks/{task_id}"
+WS_URL = "ws://127.0.0.1:5000/api/v1/tasks/{task_id}/ws"
 
 
 async def listen_task(task_id: str):
