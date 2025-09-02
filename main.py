@@ -3,10 +3,13 @@ from steganography.lsb import LeastSignificantBit
 from helpers.message_bit import message_to_bit, bit_to_message
 import os
 import tempfile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from uuid import uuid4
-from s3.main import upload_and_presign, PRESIGN_TTL, S3_BUCKET
-from steganography.metrics import StegoMetrics 
+from s3.main import PRESIGN_TTL, S3_BUCKET
+from s3.utils import upload_bytes_and_get_key
+from steganography.metrics import StegoMetrics
+from tasks.main import extract_task, embed_task
+from celery_app import celery
 
 app = FastAPI()
 
@@ -20,96 +23,81 @@ async def lsb_embed(
     if not (1 <= k_val <= 8):
         raise HTTPException(status_code=422, detail="k_val must be between 1 and 8")
 
-    suffix = os.path.splitext(file.filename or "")[1].lower()
-    if suffix not in {".png", ".jpg", ".jpeg"}:
-        suffix = ".png"
-
-    input_path = output_path = None
     try:
-        # Save input
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_in:
-            tmp_in.write(await file.read())
-            input_path = tmp_in.name
+        cover_bytes = await file.read()
+        cover_name  = (file.filename or "cover.png").rsplit("/", 1)[-1]
 
-        # Stego output (always PNG)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_out:
-            output_path = tmp_out.name
-
-        # Embed
-        lsb = LeastSignificantBit(k_val=k_val)
-        msg_bits = message_to_bit(message)  # text -> raw bits
-        lsb.embed_message(input_path, output_path, msg_bits)
-
-        # Upload to S3
-        key = f"stego-lsb/{os.path.splitext(file.filename or 'stego')[0]}_{uuid4().hex}.png"
-        url = upload_and_presign(output_path, key, content_type="image/png")
-
-        return JSONResponse(
-            {
-                "bucket": S3_BUCKET,
-                "key": key,
-                "url": url,
-                "expires_in": PRESIGN_TTL,
-                "k_val": k_val,
-                "note": "Save the message and k_val; you need the same k_val to extract."
-            }
+        # 1) Upload cover to S3 so worker can read it
+        cover_key = upload_bytes_and_get_key(
+            "stego/cover",
+            cover_name,
+            cover_bytes,
+            file.content_type or "image/png",
         )
+
+        # 2) Enqueue Celery embed task
+        task = embed_task.delay(
+            cover_key=cover_key,
+            message=message,
+            k_val=k_val,
+            original_filename=cover_name,   # for nicer stego filename
+        )
+
+        # 3) Immediate response with task id
+        return JSONResponse({
+            "task_id": task.id,
+            "status": "PENDING",
+            "check": f"/tasks/{task.id}",
+            "cover_key": cover_key,
+            "notes": "Poll the status URL until state is SUCCESS to get the stego S3 key and URL."
+        })
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        for p in (input_path, output_path):
-            try:
-                if p and os.path.exists(p):
-                    os.remove(p)
-            except Exception:
-                pass
+
 
 @app.post("/lsb/extract")
 async def lsb_extract(
-    file: UploadFile = File(..., description="Stego image (PNG/JPG)"),
-    original: UploadFile = File(..., description="Original cover image (PNG/JPG)"),  # required for your metrics
+    file: UploadFile = File(..., description="Stego image (PNG/JPG/PNG)"),
+    original: UploadFile = File(..., description="Original cover image (PNG/JPG/PNG)"),
     k_val: int = Form(4, description="Number of LSBs used (must match embedding)")
 ):
     if not (1 <= k_val <= 8):
         raise HTTPException(status_code=422, detail="k_val must be between 1 and 8")
 
-    stego_path = None
-    original_path = None
     try:
-        # Save stego
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_stego:
-            tmp_stego.write(await file.read())
-            stego_path = tmp_stego.name
+        stego_bytes = await file.read()
+        orig_bytes  = await original.read()
 
-        # Save original (needed by StegoMetrics)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_orig:
-            tmp_orig.write(await original.read())
-            original_path = tmp_orig.name
+        # Upload both to S3 so workers can read them
+        stego_name = (file.filename or "stego.png").rsplit("/", 1)[-1]
+        orig_name  = (original.filename or "original.png").rsplit("/", 1)[-1]
 
-        # 1) extract hidden message
-        lsb = LeastSignificantBit(k_val=k_val)
-        extracted_bits = lsb.extract_message(stego_path)
-        message = bit_to_message(extracted_bits)
+        stego_key = upload_bytes_and_get_key("stego/incoming", stego_name, stego_bytes, file.content_type or "image/png")
+        orig_key  = upload_bytes_and_get_key("stego/original",  orig_name,  orig_bytes,  original.content_type or "image/png")
 
-        # 2) compute metrics (MSE, PSNR, SSIM)
-        metrics_calc = StegoMetrics(ori_image=original_path)
-        mse, psnr, ssim = metrics_calc.calculate_metrics(stego_path)
+        # Enqueue Celery task
+        task = extract_task.delay(stego_key=stego_key, original_key=orig_key, k_val=k_val)
 
         return JSONResponse({
-            "message": message,
-            "metrics": {
-                "mse": float(mse),
-                "psnr": float(psnr) if psnr != float("inf") else "inf",
-                "ssim": float(ssim)
-            }
+            "task_id": task.id,
+            "status": "PENDING",
+            "check": f"/tasks/{task.id}",
+            "stego_key": stego_key,
+            "original_key": orig_key,
+            "notes": "Poll the status URL until state is SUCCESS to retrieve message + metrics."
         })
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        # cleanup
-        for p in (stego_path, original_path):
-            try:
-                if p and os.path.exists(p):
-                    os.remove(p)
-            except Exception:
-                pass
+
+@app.get("/tasks/{task_id}")
+async def get_task_status(task_id: str):
+    result = celery.AsyncResult(task_id)
+    state = result.state  # PENDING, STARTED, RETRY, FAILURE, SUCCESS
+    payload = {"task_id": task_id, "status": state}
+
+    if state == "SUCCESS":
+        payload["result"] = result.get()  # contains message + metrics
+    elif state == "FAILURE":
+        payload["error"] = str(result.info)  # exception info
+
+    return JSONResponse(payload)
