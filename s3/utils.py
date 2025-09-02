@@ -3,6 +3,12 @@ from botocore.exceptions import ClientError
 import os
 import tempfile
 from uuid import uuid4
+import re
+
+
+def safe_name(name: str) -> str:
+    base = name.rsplit("/", 1)[-1]
+    return re.sub(r"[^A-Za-z0-9._-]", "_", base) or "file"
 
 def ensure_bucket(bucket: str):
     """Create bucket if it doesn't exist (idempotent)."""
