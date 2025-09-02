@@ -1,5 +1,12 @@
 from faker import Faker
+from methods.preprocess.data_serialization import serialize_record
 import random
+
+KTP_FIELD_ORDER = [
+    'NIK', 'Nama', 'Tempat/Tgl Lahir', 'Jenis Kelamin', 'Gol Darah', 'Alamat',
+    'RT/RW', 'Kel/Desa', 'Kecamatan', 'Agama', 'Status Perkawinan', 
+    'Pekerjaan', 'Kewarganegaraan', 'Berlaku Hingga'
+]
 
 class DummyKTPGenerator:
     def __init__(self):
@@ -75,8 +82,8 @@ class DummyKTPGenerator:
             ktp.get('Kewarganegaraan', ''),
             ktp.get('Berlaku Hingga', '')
         ]
-        merged = '#'.join(fields)
-        return merged.replace(' ', '%')
+        
+        return serialize_record(fields, KTP_FIELD_ORDER)
 
     @staticmethod
     def merge_multiple_ktps(ktps):

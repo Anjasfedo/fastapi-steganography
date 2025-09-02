@@ -6,8 +6,44 @@ from tasks.steganography.lsb import embed_task, extract_task
 import tempfile
 import os
 from methods.steganography.lsb import LeastSignificantBit # <-- Impor kelas LSB Anda
+from methods.preprocess.padding_data import pad_message_to_capacity
+
 
 router = APIRouter()
+
+@router.post("/lsb/calculate-capacity")
+async def lsb_calculate_capacity(
+    file: UploadFile = File(..., description="Cover image (PNG)"),
+    k_val: int = Form(4, ge=1, le=8, description="Number of LSBs to use (1-8)")
+):
+    """
+    Menghitung kapasitas maksimum penyisipan pesan (dalam karakter) untuk sebuah gambar.
+    """
+    temp_file_path = None
+    try:
+        # Simpan file sementara untuk dianalisis
+        file_extension = os.path.splitext(file.filename or ".png")[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(await file.read())
+            temp_file_path = temp_file.name
+
+        # Hitung kapasitas
+        lsb = LeastSignificantBit(k_val=k_val)
+        max_chars, max_bits = lsb.calculate_max_message_size(temp_file_path)
+        
+        return api_response(data={
+            "max_characters": max_chars,
+            "max_bits_payload": max_bits,
+            "k_val": k_val,
+            "notes": f"Gambar ini dapat menampung hingga {max_chars} karakter."
+        })
+
+    except Exception as e:
+        return api_response(status=False, message="Failed to calculate capacity", error=str(e), status_code=500)
+    finally:
+        # Selalu hapus file sementara
+        if temp_file_path and os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
 
 @router.post("/lsb/embed")
 async def lsb_embed(
@@ -36,19 +72,18 @@ async def lsb_embed(
         
         message_to_embed = message
 
-        # 3. Jika flag diaktifkan, ulangi pesan hingga kapasitas penuh
         if fill_max_capacity:
-            if not message or len(message) == 0:
+            try:
+                # 2. Panggil fungsi helper untuk melakukan padding
+                message_to_embed = pad_message_to_capacity(message, max_chars)
+            except ValueError as e:
+                # 3. Tangkap error jika pesan kosong dan kembalikan respons API
                 return api_response(
                     status=False,
                     message="Validation Error",
-                    error="Pesan tidak boleh kosong saat menggunakan 'fill_max_capacity'.",
-                    status_code=422  # Unprocessable Entity
+                    error=str(e),
+                    status_code=422
                 )
-            
-            repetitions = max_chars // len(message)
-            remainder = max_chars % len(message)
-            message_to_embed = (message * repetitions) + message[:remainder]
 
         # 4. Validasi ukuran pesan sebelum mengirim ke task
         if len(message_to_embed) > max_chars:
