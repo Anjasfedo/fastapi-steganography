@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Query
 from helpers.response_wrapper import api_response
-from fakers.main import DummyKTPGenerator
+from fakers.main import DummyKTPGenerator, KTP_FIELD_ORDER
 from typing import Literal
+from methods.preprocess.data_serialization import serialize_record
 
 # Buat instance router
 router = APIRouter()
@@ -9,14 +10,9 @@ router = APIRouter()
 # Buat satu instance generator untuk digunakan kembali, ini lebih efisien
 ktp_generator = DummyKTPGenerator()
 
+
 @router.get("/generator")
 async def generate_dummy_ktp(
-    count: int = Query(
-        default=1, 
-        ge=1, 
-        le=100, 
-        description="Jumlah data KTP yang ingin dibuat (antara 1 dan 100)."
-    ),
     output_format: Literal['json', 'merged'] = Query(
         default='json',
         description="Format output: 'json' (data lengkap) atau 'merged' (string ringkas)."
@@ -27,21 +23,21 @@ async def generate_dummy_ktp(
     """
     try:
         # Hasilkan data KTP sebanyak 'count'
-        ktp_list = [ktp_generator.generate_ktp() for _ in range(count)]
+        ktp_data = ktp_generator.generate_ktp()
 
         if output_format == 'merged':
-            # Jika formatnya 'merged', proses data menjadi string ringkas
-            result_data = ktp_generator.merge_multiple_ktps(ktp_list)
+            # 2. Panggil fungsi serialisasi dengan benar di sini
+            result_data = serialize_record(ktp_data, KTP_FIELD_ORDER)
         else:
             # Jika tidak, kembalikan sebagai list of dictionaries (JSON)
-            result_data = ktp_list
+            result_data = ktp_data
 
         return api_response(data=result_data, message=f"Successfully generated {len(result_data)} KTP records.")
 
     except Exception as e:
         return api_response(
-            status=False, 
-            message="An unexpected server error occurred", 
+            status=False,
+            message="An unexpected server error occurred",
             error=str(e),
-            status_code=500 # Internal Server Error
+            status_code=500  # Internal Server Error
         )
