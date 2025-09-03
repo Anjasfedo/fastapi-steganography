@@ -20,7 +20,7 @@ def compress_task(self, *, input_string: str):
 
     try:
         # Apply Huffman coding to the input string
-        encoded_text, huffman_tree, codebook = HuffmanCoding.build_huffman(
+        encoded_bits, huffman_tree, codebook = HuffmanCoding.build_huffman(
             input_string)
 
         # Save the Huffman codebook to a file
@@ -44,7 +44,7 @@ def compress_task(self, *, input_string: str):
             "file_key": file_key,
             "url": url,
             # Optionally, you can also return the encoded text
-            "huffman_encoded_text": encoded_text
+            "huffman_encoded_text": encoded_bits
         }
     except Exception as e:
         self.update_state(state="FAILURE", meta={

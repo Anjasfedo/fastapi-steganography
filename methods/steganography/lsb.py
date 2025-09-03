@@ -45,7 +45,7 @@ class LeastSignificantBit:
             
         max_chars = usable_bits // 8
 
-        return max_chars, usable_bits
+        return max_chars, usable_bits, width, height
 
     def message_to_bits(self, message_bits):
         """

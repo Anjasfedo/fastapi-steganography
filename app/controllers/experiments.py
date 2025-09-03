@@ -5,6 +5,8 @@ from s3.utils import upload_bytes_and_get_key
 from tasks.experiments.lsb import embed_task as lsb_embed_task, extract_task as lsb_extract_task
 from tasks.experiments.eceg_lsb import embed_task as eceg_lsb_embed_task, extract_task as eceg_lsb_extract_task, generate_keys_task as eceg_lsb_generate_keys_task
 from tasks.experiments.lzw_lsb import embed_task as lzw_lsb_embed_task, extract_task as lzw_lsb_extract_task
+from tasks.experiments.huffman_coding_lsb import embed_task as huffman_coding_lsb_embed_task, extract_task as huffman_coding_lsb_extract_task
+from tasks.experiments.eceg_lzw_lsb import generate_keys_task as eceg_lzw_lsb_generate_keys_task, embed_task as eceg_lzw_lsb_embed_task, extract_task as eceg_lzw_lsb_extract_task
 import os
 
 
@@ -98,7 +100,11 @@ async def lsb_extract(
     original: UploadFile = File(...,
                                 description="Original cover image (PNG/JPG/PNG)"),
     k_val: int = Form(
-        4, description="Number of LSBs used (must match embedding)")
+        4,
+        ge=1,
+        le=8,
+        description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
+    ),
 ):
     if not (1 <= k_val <= 8):
         raise HTTPException(
@@ -232,7 +238,12 @@ async def eceg_lsb_extract(
     stego_file: UploadFile = File(..., description="File stego image (PNG)"),
     original_file: UploadFile = File(...,
                                      description="File cover image asli (PNG)"),
-    k_val: int = Form(4, ge=1, le=8),
+    k_val: int = Form(
+        4,
+        ge=1,
+        le=8,
+        description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
+    ),
     private_key: int = Form(..., description="Kunci privat ECEG (integer)")
 ):
     try:
@@ -242,11 +253,11 @@ async def eceg_lsb_extract(
         orig_name = original_file.filename or "original.png"
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
-        
+
         stego_key = upload_bytes_and_get_key(
             prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png"
         )
-        
+
         original_key = upload_bytes_and_get_key(
             prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png"
         )
@@ -307,7 +318,7 @@ async def lzw_lsb_embed(
             Status_Perkawinan=Status_Perkawinan, Pekerjaan=Pekerjaan, Kewarganegaraan=Kewarganegaraan,
             Berlaku_Hingga=Berlaku_Hingga
         )
-        
+
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start LZW-LSB embed", error=str(e), status_code=500)
@@ -320,7 +331,16 @@ async def lzw_lsb_extract(
     stego_file: UploadFile = File(..., description="File stego image (PNG)"),
     original_file: UploadFile = File(...,
                                      description="File cover image asli (PNG)"),
-    k_val: int = Form(4, ge=1, le=8)
+    k_val: int = Form(
+        4,
+        ge=1,
+        le=8,
+        description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
+    ),
+    bit_width: int = Form(
+        ...,
+        description="Lebar bit (misal: 12) yang digunakan oleh LZW untuk dekompresi, diperoleh dari hasil kompresi."
+    )
 ):
     try:
         # ... (logika upload stego_file dan original_file untuk mendapatkan stego_key dan original_key)
@@ -330,15 +350,231 @@ async def lzw_lsb_extract(
         orig_name = original_file.filename or "original.png"
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
-        
+
         stego_key = upload_bytes_and_get_key(
             prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
         original_key = upload_bytes_and_get_key(
             prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
 
         task = lzw_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val)
-        
+            stego_key=stego_key, original_key=original_key, k_val=k_val, bit_width=bit_width)
+
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start LZW-LSB extract", error=str(e), status_code=500)
+
+
+@router.post("/huffman-lsb/embed")
+async def huffman_lsb_embed(
+    file: UploadFile = File(..., description="Cover image (PNG)"),
+    k_val: int = Form(4, ge=1, le=8),
+
+    max_chars: int = Form(
+        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+
+    NIK: str = Form("1771010101900001",
+                    description="Nomor Induk Kependudukan"),
+    Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
+    Tempat_Tgl_Lahir: str = Form(
+        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+    Jenis_Kelamin: str = Form(
+        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+    Gol_Darah: str = Form("O", alias="Gol. Darah",
+                          description="A, B, AB, atau O"),
+    Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
+                       description="Alamat lengkap"),
+    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+                         description="Nama Kelurahan atau Desa"),
+    Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
+    Agama: str = Form("ISLAM", description="Agama"),
+    Status_Perkawinan: str = Form(
+        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+    Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
+    Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
+    Berlaku_Hingga: str = Form(
+        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+):
+    try:
+        # ... (logika upload cover image untuk mendapatkan cover_key)
+        cover_bytes = await file.read()
+        cover_name = file.filename or "cover.png"
+        job_id = uuid4().hex
+        prefix = f"experiments/{job_id}"
+        cover_key = upload_bytes_and_get_key(
+            prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png")
+
+        task = huffman_coding_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            max_chars=max_chars,
+            NIK=NIK, Nama=Nama, Tempat_Tgl_Lahir=Tempat_Tgl_Lahir, Jenis_Kelamin=Jenis_Kelamin, Gol_Darah=Gol_Darah,
+            Alamat=Alamat, RT_RW=RT_RW, Kel_Desa=Kel_Desa, Kecamatan=Kecamatan, Agama=Agama,
+            Status_Perkawinan=Status_Perkawinan, Pekerjaan=Pekerjaan, Kewarganegaraan=Kewarganegaraan,
+            Berlaku_Hingga=Berlaku_Hingga
+        )
+        return api_response(data={"task_id": task.id, "status": "PENDING"})
+    except Exception as e:
+        return api_response(status=False, message="Failed to start Huffman-LSB embed", error=str(e), status_code=500)
+
+
+@router.post("/huffman-lsb/extract")
+async def huffman_lsb_extract(
+    stego_file: UploadFile = File(..., description="File stego image (PNG)"),
+    original_file: UploadFile = File(...,
+                                     description="File cover image asli (PNG)"),
+    codebook_file: UploadFile = File(...,
+                                     description="File huffman codebook (.json)"),
+    k_val: int = Form(
+        4,
+        ge=1,
+        le=8,
+        description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
+    ),
+):
+    try:
+        # ... (logika upload stego_file dan original_file untuk mendapatkan stego_key dan original_key)
+        stego_bytes = await stego_file.read()
+        stego_name = stego_file.filename or "stego.png"
+
+        orig_bytes = await original_file.read()
+        orig_name = original_file.filename or "original.png"
+
+        codebook_bytes = await codebook_file.read()
+        codebook_name = codebook_file.filename or "codebook.json"
+
+        job_id = uuid4().hex
+        prefix = f"experiments/{job_id}/extract"
+        stego_key = upload_bytes_and_get_key(
+            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
+        original_key = upload_bytes_and_get_key(
+            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
+        codebook_key = upload_bytes_and_get_key(
+            prefix, f"codebook-{codebook_name}", codebook_bytes, codebook_file.content_type or "application/json"
+        )
+
+        task = huffman_coding_lsb_extract_task.delay(
+            stego_key=stego_key, original_key=original_key, k_val=k_val, codebook_key=codebook_key
+        )
+        return api_response(data={"task_id": task.id, "status": "PENDING"})
+    except Exception as e:
+        return api_response(status=False, message="Failed to start Huffman-LSB extract", error=str(e), status_code=500)
+
+
+@router.post("/eceg-lzw-lsb/generate-keys")
+async def generate_keys():
+    try:
+        # Enqueue Celery generate keys task
+        task = eceg_lzw_lsb_generate_keys_task.apply_async()
+
+        return api_response(data={
+            "task_id": task.id,
+            "status": "PENDING",
+            "check": f"/tasks/{task.id}",
+        })
+    except Exception as e:
+        return api_response(
+            status=False,
+            message="An unexpected server error occurred",
+            error=str(e),
+            status_code=500  # Internal Server Error
+        )
+
+
+@router.post("/eceg-lzw-lsb/embed")
+async def eceg_lzw_lsb_embed(
+    file: UploadFile = File(..., description="Cover image (PNG)"),
+    k_val: int = Form(4, ge=1, le=8),
+    public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
+    max_chars: int = Form(
+        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+
+    NIK: str = Form("1771010101900001",
+                    description="Nomor Induk Kependudukan"),
+    Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
+    Tempat_Tgl_Lahir: str = Form(
+        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+    Jenis_Kelamin: str = Form(
+        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+    Gol_Darah: str = Form("O", alias="Gol. Darah",
+                          description="A, B, AB, atau O"),
+    Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
+                       description="Alamat lengkap"),
+    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+                         description="Nama Kelurahan atau Desa"),
+    Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
+    Agama: str = Form("ISLAM", description="Agama"),
+    Status_Perkawinan: str = Form(
+        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+    Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
+    Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
+    Berlaku_Hingga: str = Form(
+        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+):
+    try:
+        cover_bytes = await file.read()
+        cover_name = file.filename or "cover.png"
+        job_id = uuid4().hex
+        prefix = f"experiments/{job_id}"
+        cover_key = upload_bytes_and_get_key(
+            prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png")
+
+        task = eceg_lzw_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            public_key=public_key,
+            max_chars=max_chars,
+            NIK=NIK, Nama=Nama, Tempat_Tgl_Lahir=Tempat_Tgl_Lahir, Jenis_Kelamin=Jenis_Kelamin, Gol_Darah=Gol_Darah,
+            Alamat=Alamat, RT_RW=RT_RW, Kel_Desa=Kel_Desa, Kecamatan=Kecamatan, Agama=Agama,
+            Status_Perkawinan=Status_Perkawinan, Pekerjaan=Pekerjaan, Kewarganegaraan=Kewarganegaraan,
+            Berlaku_Hingga=Berlaku_Hingga
+        )
+        return api_response(data={"task_id": task.id, "status": "PENDING"})
+    except Exception as e:
+        return api_response(status=False, message="Failed to start ECEG-LZW-LSB embed", error=str(e), status_code=500)
+
+
+@router.post("/eceg-lzw-lsb/extract")
+async def eceg_lzw_lsb_extract(
+    stego_file: UploadFile = File(
+        ...,
+        description="File gambar stego (format PNG) yang berisi data tersembunyi."
+    ),
+    original_file: UploadFile = File(
+        ...,
+        description="File gambar cover asli (format PNG) untuk perbandingan metrik kualitas."
+    ),
+    k_val: int = Form(
+        4,
+        ge=1,
+        le=8,
+        description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
+    ),
+    private_key: int = Form(
+        ...,
+        description="Kunci privat ECEG (integer) yang diperlukan untuk mendekripsi pesan."
+    ),
+    bit_width: int = Form(
+        ...,
+        description="Lebar bit (misal: 12) yang digunakan oleh LZW untuk dekompresi, diperoleh dari hasil kompresi."
+    )
+):
+    try:
+        stego_bytes = await stego_file.read()
+        stego_name = stego_file.filename or "stego.png"
+
+        orig_bytes = await original_file.read()
+        orig_name = original_file.filename or "original.png"
+
+        job_id = uuid4().hex
+        prefix = f"experiments/{job_id}/extract"
+        stego_key = upload_bytes_and_get_key(
+            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
+        original_key = upload_bytes_and_get_key(
+            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
+
+        task = eceg_lzw_lsb_extract_task.delay(
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, bit_width=bit_width
+        )
+        return api_response(data={"task_id": task.id, "status": "PENDING"})
+    except Exception as e:
+        return api_response(status=False, message="Failed to start ECEG-LZW-LSB extract", error=str(e), status_code=500)

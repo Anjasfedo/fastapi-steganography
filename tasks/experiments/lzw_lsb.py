@@ -64,7 +64,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
         padded_plaintext = pad_message_to_capacity(message_block, max_chars)
 
         # 2. Kompresi dengan LZW
-        compressed_data = lzw.compress(padded_plaintext)
+        compressed_bits, bit_width = lzw.compress(padded_plaintext)
         self.update_state(meta={"stage": "LZW Compressed", "progress": 40})
 
         # 3. Unduh Gambar & Sisipkan Pesan Terkompresi
@@ -74,7 +74,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
         fd, stego_out_path = tempfile.mkstemp(suffix=".png")
         os.close(fd)
         # Tidak ada padding, langsung sisipkan bit terkompresi
-        lsb.embed_message(cover_path, stego_out_path, compressed_data)
+        lsb.embed_message(cover_path, stego_out_path, compressed_bits)
         self.update_state(meta={"stage": "LSB Embedding", "progress": 75})
 
         # 4. Unggah Hasil
@@ -86,7 +86,8 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
             folder_prefix, stego_name, stego_bytes, "image/png")
         url = presign_get_url(stego_key)
 
-        return {"stego_key": stego_key, "url": url, "k_val": k_val}
+        return {"stego_key": stego_key, "url": url, "k_val": k_val,
+                'bit_width': bit_width, }
     except Exception as e:
         self.update_state(state="FAILURE", meta={
                           "exc_type": type(e).__name__, "exc_message": str(e)})
@@ -101,7 +102,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
 
 
 @celery.task(name="tasks.experiments.lzw_lsb.extract_task", bind=True)
-def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
+def extract_task(self, *, stego_key: str, original_key: str, k_val: int, bit_width: int):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 10})
     stego_path = original_path = None
@@ -114,7 +115,7 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
         self.update_state(
             meta={"stage": "Compressed Bits Extracted", "progress": 40})
 
-        decompressed_message_block = lzw.decompress(extracted_bits)
+        decompressed_message_block = lzw.decompress(extracted_bits, bit_width)
         self.update_state(meta={"stage": "LZW Decompressed", "progress": 60})
 
         # 3. Deserialisasi Data KTP
