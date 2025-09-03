@@ -24,7 +24,7 @@ eceg = EllipticCurveElGamal()
 lzw = LZW()
 
 
-@celery.task(name="tasks.cryptography.eceg_lsb.generate_keys_task", bind=True)
+@celery.task(name="tasks.cryptography.eceg_lzw_lsb.generate_keys_task", bind=True)
 def generate_keys_task(self):
     """Generate and return ElGamal private and public keys."""
     try:

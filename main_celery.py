@@ -24,6 +24,9 @@ celery.conf.imports = (
     "tasks.experiments.lzw_lsb",
     "tasks.experiments.huffman_coding_lsb",
     "tasks.experiments.eceg_lzw_lsb",
+    "tasks.experiments.eceg_huffman_coding_lsb",
+    "tasks.experiments.lzw_eceg_lsb",
+    "tasks.experiments.huffman_coding_eceg_lsb",
 )
 
 # Reasonable defaults

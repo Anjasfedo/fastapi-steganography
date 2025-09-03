@@ -88,7 +88,7 @@ class LeastSignificantBit:
         img_data = np.array(image)
 
         height, width, channels = img_data.shape
-        max_chars, max_bits = self.calculate_max_message_size(input_image_path)
+        _, max_bits, _, _ = self.calculate_max_message_size(input_image_path)
         if len(message_bits) - 32 > max_bits:
             raise ValueError(f"Message too long! max_bits: {max_bits} bits, Message: {len(message_bits)} bits.")
 
