@@ -14,14 +14,15 @@ celery = Celery(
 )
 
 celery.conf.imports = (
-    "tasks.steganography.lsb", 
-    "tasks.cryptography.eceg", 
+    "tasks.steganography.lsb",
+    "tasks.cryptography.eceg",
     "tasks.lossless_compression.lzw",
     "tasks.lossless_compression.huffman_coding",
-    
+
     "tasks.experiments.lsb",
     "tasks.experiments.eceg_lsb",
-    )
+    "tasks.experiments.lzw_lsb",
+)
 
 # Reasonable defaults
 celery.conf.update(
