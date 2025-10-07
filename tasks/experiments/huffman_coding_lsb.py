@@ -17,7 +17,7 @@ from methods.preprocess.padding_data import pad_message_to_capacity
 KTP_FIELD_ORDER = [
     'NIK', 'Nama', 'Tempat_Tgl_Lahir', 'Jenis_Kelamin', 'Gol_Darah', 'Alamat',
     'RT_RW', 'Kel_Desa', 'Kecamatan', 'Agama', 'Status_Perkawinan',
-    'Pekerjaan', 'Kewarganegaraan', 'Berlaku Hingga'
+    'Pekerjaan', 'Kewarganegaraan', 'Berlaku_Hingga'
 ]
 
 
@@ -58,7 +58,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
             "Status_Perkawinan": Status_Perkawinan,
             "Pekerjaan": Pekerjaan,
             "Kewarganegaraan": Kewarganegaraan,
-            "Berlaku Hingga": Berlaku_Hingga,
+            "Berlaku_Hingga": Berlaku_Hingga,
         }
         # --- Sisa alur kerja menggunakan max_chars dari parameter ---
         message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)

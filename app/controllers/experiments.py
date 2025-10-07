@@ -32,24 +32,24 @@ async def lsb_embed(
                     description="Nomor Induk Kependudukan"),
     Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
     Tempat_Tgl_Lahir: str = Form(
-        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+        "BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990"),
     Jenis_Kelamin: str = Form(
-        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+        "LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
     Gol_Darah: str = Form("O", alias="Gol. Darah",
                           description="A, B, AB, atau O"),
     Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
                        description="Alamat lengkap"),
-    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
-    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+    RT_RW: str = Form("001/001", alias="RT_RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel_Desa",
                          description="Nama Kelurahan atau Desa"),
     Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
     Agama: str = Form("ISLAM", description="Agama"),
     Status_Perkawinan: str = Form(
-        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+        "BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN"),
     Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
     Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
     Berlaku_Hingga: str = Form(
-        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+        "SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga")
 ):
     """
     Menyisipkan pesan final ke dalam cover image dan memulai background task.
@@ -204,24 +204,24 @@ async def eceg_lsb_embed(
                     description="Nomor Induk Kependudukan"),
     Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
     Tempat_Tgl_Lahir: str = Form(
-        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+        "BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990"),
     Jenis_Kelamin: str = Form(
-        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+        "LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
     Gol_Darah: str = Form("O", alias="Gol. Darah",
                           description="A, B, AB, atau O"),
     Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
                        description="Alamat lengkap"),
-    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
-    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+    RT_RW: str = Form("001/001", alias="RT_RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel_Desa",
                          description="Nama Kelurahan atau Desa"),
     Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
     Agama: str = Form("ISLAM", description="Agama"),
     Status_Perkawinan: str = Form(
-        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+        "BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN"),
     Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
     Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
     Berlaku_Hingga: str = Form(
-        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+        "SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga")
 ):
     try:
         cover_bytes = await file.read()
@@ -300,24 +300,24 @@ async def lzw_lsb_embed(
                     description="Nomor Induk Kependudukan"),
     Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
     Tempat_Tgl_Lahir: str = Form(
-        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+        "BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990"),
     Jenis_Kelamin: str = Form(
-        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+        "LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
     Gol_Darah: str = Form("O", alias="Gol. Darah",
                           description="A, B, AB, atau O"),
     Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
                        description="Alamat lengkap"),
-    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
-    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+    RT_RW: str = Form("001/001", alias="RT_RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel_Desa",
                          description="Nama Kelurahan atau Desa"),
     Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
     Agama: str = Form("ISLAM", description="Agama"),
     Status_Perkawinan: str = Form(
-        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+        "BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN"),
     Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
     Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
     Berlaku_Hingga: str = Form(
-        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+        "SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga")
 ):
     try:
         cover_bytes = await file.read()
@@ -398,24 +398,24 @@ async def huffman_lsb_embed(
                     description="Nomor Induk Kependudukan"),
     Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
     Tempat_Tgl_Lahir: str = Form(
-        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+        "BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990"),
     Jenis_Kelamin: str = Form(
-        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+        "LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
     Gol_Darah: str = Form("O", alias="Gol. Darah",
                           description="A, B, AB, atau O"),
     Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
                        description="Alamat lengkap"),
-    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
-    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+    RT_RW: str = Form("001/001", alias="RT_RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel_Desa",
                          description="Nama Kelurahan atau Desa"),
     Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
     Agama: str = Form("ISLAM", description="Agama"),
     Status_Perkawinan: str = Form(
-        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+        "BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN"),
     Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
     Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
     Berlaku_Hingga: str = Form(
-        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+        "SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga")
 ):
     try:
         # ... (logika upload cover image untuk mendapatkan cover_key)
@@ -514,24 +514,24 @@ async def eceg_lzw_lsb_embed(
                     description="Nomor Induk Kependudukan"),
     Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
     Tempat_Tgl_Lahir: str = Form(
-        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+        "BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990"),
     Jenis_Kelamin: str = Form(
-        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+        "LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
     Gol_Darah: str = Form("O", alias="Gol. Darah",
                           description="A, B, AB, atau O"),
     Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
                        description="Alamat lengkap"),
-    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
-    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+    RT_RW: str = Form("001/001", alias="RT_RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel_Desa",
                          description="Nama Kelurahan atau Desa"),
     Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
     Agama: str = Form("ISLAM", description="Agama"),
     Status_Perkawinan: str = Form(
-        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+        "BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN"),
     Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
     Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
     Berlaku_Hingga: str = Form(
-        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+        "SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga")
 ):
     try:
         cover_bytes = await file.read()
@@ -640,24 +640,24 @@ async def eceg_huffman_lsb_embed(
                     description="Nomor Induk Kependudukan"),
     Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
     Tempat_Tgl_Lahir: str = Form(
-        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+        "BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990"),
     Jenis_Kelamin: str = Form(
-        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+        "LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
     Gol_Darah: str = Form("O", alias="Gol. Darah",
                           description="A, B, AB, atau O"),
     Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
                        description="Alamat lengkap"),
-    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
-    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+    RT_RW: str = Form("001/001", alias="RT_RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel_Desa",
                          description="Nama Kelurahan atau Desa"),
     Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
     Agama: str = Form("ISLAM", description="Agama"),
     Status_Perkawinan: str = Form(
-        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+        "BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN"),
     Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
     Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
     Berlaku_Hingga: str = Form(
-        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+        "SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga")
 ):
     try:
         cover_bytes = await file.read()
@@ -764,24 +764,24 @@ async def lzw_eceg_lsb_embed(
                     description="Nomor Induk Kependudukan"),
     Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
     Tempat_Tgl_Lahir: str = Form(
-        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+        "BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990"),
     Jenis_Kelamin: str = Form(
-        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+        "LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
     Gol_Darah: str = Form("O", alias="Gol. Darah",
                           description="A, B, AB, atau O"),
     Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
                        description="Alamat lengkap"),
-    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
-    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+    RT_RW: str = Form("001/001", alias="RT_RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel_Desa",
                          description="Nama Kelurahan atau Desa"),
     Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
     Agama: str = Form("ISLAM", description="Agama"),
     Status_Perkawinan: str = Form(
-        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+        "BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN"),
     Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
     Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
     Berlaku_Hingga: str = Form(
-        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+        "SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga")
 ):
     try:
         cover_bytes = await file.read()
@@ -891,24 +891,24 @@ async def huffman_eceg_lsb_embed(
                     description="Nomor Induk Kependudukan"),
     Nama: str = Form("BUDI MARTAMI", description="Nama Lengkap"),
     Tempat_Tgl_Lahir: str = Form(
-        "BENGKULU, 01-01-1990", alias="Tempat/Tgl Lahir", description="Contoh: BENGKULU, 01-01-1990"),
+        "BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990"),
     Jenis_Kelamin: str = Form(
-        "LAKI-LAKI", alias="Jenis Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
+        "LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN"),
     Gol_Darah: str = Form("O", alias="Gol. Darah",
                           description="A, B, AB, atau O"),
     Alamat: str = Form("JL. JEND. SUDIRMAN NO. 1",
                        description="Alamat lengkap"),
-    RT_RW: str = Form("001/001", alias="RT/RW", description="Contoh: 001/002"),
-    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel/Desa",
+    RT_RW: str = Form("001/001", alias="RT_RW", description="Contoh: 001/002"),
+    Kel_Desa: str = Form("ANGGUT ATAS", alias="Kel_Desa",
                          description="Nama Kelurahan atau Desa"),
     Kecamatan: str = Form("RATU SAMBAN", description="Nama Kecamatan"),
     Agama: str = Form("ISLAM", description="Agama"),
     Status_Perkawinan: str = Form(
-        "BELUM KAWIN", alias="Status Perkawinan", description="KAWIN/BELUM KAWIN"),
+        "BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN"),
     Pekerjaan: str = Form("PELAJAR/MAHASISWA", description="Jenis Pekerjaan"),
     Kewarganegaraan: str = Form("WNI", description="Kewarganegaraan"),
     Berlaku_Hingga: str = Form(
-        "SEUMUR HIDUP", alias="Berlaku Hingga", description="Berlaku Hingga")
+        "SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga")
 ):
     try:
         cover_bytes = await file.read()
