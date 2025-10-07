@@ -31,6 +31,7 @@ async def generate_dummy_ktp(
         else:
             # Jika tidak, kembalikan sebagai list of dictionaries (JSON)
             result_data = ktp_data
+        print(ktp_data)
 
         return api_response(data=result_data, message=f"Successfully generated {len(result_data)} KTP records.")
 
