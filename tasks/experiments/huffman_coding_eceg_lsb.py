@@ -2,6 +2,7 @@ import os
 import tempfile
 import json
 import math
+from typing import Optional
 from main_celery import celery
 from methods.steganography.lsb import LeastSignificantBit
 from methods.cryptography.eceg import EllipticCurveElGamal
@@ -45,7 +46,7 @@ def generate_keys_task(self):
 
 
 @celery.task(name="tasks.experiments.huffman_coding_eceg_lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, max_chars: int,
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, max_chars: Optional[int] = None,
                NIK: str,
                Nama: str,
                Tempat_Tgl_Lahir: str,
@@ -84,8 +85,12 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, publ
         message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
         self.update_state(meta={"stage": "Data Serialized", "progress": 15})
 
-        padded_plaintext = pad_message_to_capacity(message_block, max_chars)
-        self.update_state(meta={"stage": "Message Padded", "progress": 30})
+        if max_chars is not None and max_chars > 0:
+            padded_plaintext = pad_message_to_capacity(message_block, max_chars)
+            self.update_state(meta={"stage": "Message Padded", "progress": 30})
+        else:
+            padded_plaintext = message_block # Langsung gunakan pesan tanpa padding
+            self.update_state(meta={"stage": "Padding Skipped", "progress": 30})
 
         # 2. Compress with Huffman
         compressed_bit, _, codebook = HuffmanCoding.build_huffman(

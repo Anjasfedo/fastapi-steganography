@@ -2,6 +2,7 @@ import os
 import tempfile
 import json
 import math
+from typing import Optional
 from main_celery import celery
 from methods.steganography.lsb import LeastSignificantBit
 from methods.lossless_compression.huffman_coding import HuffmanCoding
@@ -22,7 +23,7 @@ KTP_FIELD_ORDER = [
 
 
 @celery.task(name="tasks.experiments.huffman_coding_lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: int,
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: Optional[int] = None,
                NIK: str,
                Nama: str,
                Tempat_Tgl_Lahir: str,
@@ -64,8 +65,12 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
         message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
         self.update_state(meta={"stage": "Data Serialized", "progress": 45})
 
-        final_message = pad_message_to_capacity(message_block, max_chars)
-        self.update_state(meta={"stage": "Message Padded", "progress": 60})
+        if max_chars is not None and max_chars > 0:
+            final_message = pad_message_to_capacity(message_block, max_chars)
+            self.update_state(meta={"stage": "Message Padded", "progress": 60})
+        else:
+            final_message = message_block # Langsung gunakan pesan tanpa padding
+            self.update_state(meta={"stage": "Padding Skipped", "progress": 60})
 
         # 2. Kompresi dengan Huffman Coding
         encoded_bits, _, codebook = HuffmanCoding.build_huffman(final_message)
