@@ -41,32 +41,34 @@ async def get_task_status(task_id: str):
 
 
 
-@router.websocket("/{task_id}/ws")
 async def task_status_ws(websocket: WebSocket, task_id: str):
     await websocket.accept()
     try:
+        # --- Kirim status awal dengan lebih lengkap ---
         result = celery.AsyncResult(task_id)
+        initial_info = result.info if isinstance(result.info, dict) else {}
         await websocket.send_json({
             "task_id": task_id,
             "status": result.state,
-            "progress": result.info.get("progress") if isinstance(result.info, dict) else None,
+            **initial_info  # ## <<< PERUBAHAN 1: Kirim 'info' awal
         })
 
-        last_state = None
-        last_progress = None
+        last_state = result.state
+        last_info = initial_info  # ## <<< PERUBAHAN 2: Lacak seluruh 'info', bukan hanya progress
 
         while True:
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(1.0) # Polling setiap 1 detik
 
             ar = celery.AsyncResult(task_id)
             state = ar.state
             info = ar.info if isinstance(ar.info, dict) else {}
-            progress = info.get("progress") if isinstance(info, dict) else None
 
-            if state != last_state or progress != last_progress:
+            # ## <<< PERUBAHAN 3: Deteksi perubahan pada state ATAU info
+            if state != last_state or info != last_info:
+                # Siapkan payload dasar
                 payload = {"task_id": task_id, "status": state}
-                if progress is not None:
-                    payload["progress"] = progress
+                # ## <<< PERUBAHAN 4: Gabungkan semua data dari 'info'
+                payload.update(info) 
 
                 if state == "SUCCESS":
                     payload["result"] = ar.get()
@@ -79,13 +81,17 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
                     await websocket.close(code=1011)
                     break
                 else:
+                    # Kirim pembaruan progress/stage
                     await websocket.send_json(payload)
 
-                last_state, last_progress = state, progress
+                # Perbarui state terakhir yang diketahui
+                last_state, last_info = state, info
 
     except WebSocketDisconnect:
+        # Klien menutup koneksi, tidak perlu melakukan apa-apa
         return
     except Exception as e:
+        # Tangani error tak terduga
         try:
             await websocket.send_json({"task_id": task_id, "status": "ERROR", "error": str(e)})
         finally:
