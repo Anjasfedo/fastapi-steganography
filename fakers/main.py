@@ -3,9 +3,9 @@ from methods.preprocess.data_serialization import serialize_record
 import random
 
 KTP_FIELD_ORDER = [
-    'NIK', 'Nama', 'Tempat/Tgl Lahir', 'Jenis Kelamin', 'Gol Darah', 'Alamat',
-    'RT/RW', 'Kel/Desa', 'Kecamatan', 'Agama', 'Status Perkawinan', 
-    'Pekerjaan', 'Kewarganegaraan', 'Berlaku Hingga'
+    'NIK', 'Nama', 'Tempat_Tgl_Lahir', 'Jenis_Kelamin', 'Gol_Darah', 'Alamat',
+    'RT_RW', 'Kel_Desa', 'Kecamatan', 'Agama', 'Status_Perkawinan', 
+    'Pekerjaan', 'Kewarganegaraan', 'Berlaku_Hingga'
 ]
 
 class DummyKTPGenerator:
@@ -38,17 +38,17 @@ class DummyKTPGenerator:
         return {
             'NIK': nik,
             'Nama': name,
-            'Tempat/Tgl Lahir': f"{birth_place}, {birth_date}",
-            'Jenis Kelamin': gender,
-            'Gol Darah': blood_type,
+            'Tempat_Tgl_Lahir': f"{birth_place}, {birth_date}",
+            'Jenis_Kelamin': gender,
+            'Gol_Darah': blood_type,
             'Alamat': address,
-            'RT/RW': rt_rw,
-            'Kel/Desa': kelurahan,
+            'RT_RW': rt_rw,
+            'Kel_Desa': kelurahan,
             'Agama': religion,
-            'Status Perkawinan': marital_status,
+            'Status_Perkawinan': marital_status,
             'Pekerjaan': occupation,
             'Kewarganegaraan': nationality,
-            'Berlaku Hingga': valid_until,
+            'Berlaku_Hingga': valid_until,
         }
 
     def generate_nik(self):
@@ -70,17 +70,17 @@ class DummyKTPGenerator:
         fields = [
             ktp.get('NIK', ''),
             ktp.get('Nama', ''),
-            ktp.get('Tempat/Tgl Lahir', ''),
-            ktp.get('Jenis Kelamin', ''),
-            ktp.get('Gol Darah', ''),
+            ktp.get('Tempat_Tgl_Lahir', ''),
+            ktp.get('Jenis_Kelamin', ''),
+            ktp.get('Gol_Darah', ''),
             ktp.get('Alamat', ''),
-            ktp.get('RT/RW', ''),
-            ktp.get('Kel/Desa', ''),
+            ktp.get('RT_RW', ''),
+            ktp.get('Kel_Desa', ''),
             ktp.get('Agama', ''),
-            ktp.get('Status Perkawinan', ''),
+            ktp.get('Status_Perkawinan', ''),
             ktp.get('Pekerjaan', ''),
             ktp.get('Kewarganegaraan', ''),
-            ktp.get('Berlaku Hingga', '')
+            ktp.get('Berlaku_Hingga', '')
         ]
         
         return serialize_record(fields, KTP_FIELD_ORDER)
