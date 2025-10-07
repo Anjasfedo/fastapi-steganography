@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
 from uuid import uuid4
+from typing import Optional
 from helpers.response_wrapper import api_response
 from s3.utils import upload_bytes_and_get_key
 from tasks.experiments.lsb import embed_task as lsb_embed_task, extract_task as lsb_extract_task
@@ -25,8 +26,8 @@ async def lsb_embed(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    max_chars: int = Form(
-        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+    max_chars: Optional[int] = Form(
+        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
 
     NIK: str = Form("1771010101900001",
                     description="Nomor Induk Kependudukan"),
@@ -197,8 +198,8 @@ async def eceg_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: int = Form(
-        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+    max_chars: Optional[int] = Form(
+        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
 
     NIK: str = Form("1771010101900001",
                     description="Nomor Induk Kependudukan"),
@@ -293,8 +294,8 @@ async def lzw_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
 
-    max_chars: int = Form(
-        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+    max_chars: Optional[int] = Form(
+        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
 
     NIK: str = Form("1771010101900001",
                     description="Nomor Induk Kependudukan"),
@@ -391,8 +392,8 @@ async def huffman_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
 
-    max_chars: int = Form(
-        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+    max_chars: Optional[int] = Form(
+        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
 
     NIK: str = Form("1771010101900001",
                     description="Nomor Induk Kependudukan"),
@@ -507,8 +508,8 @@ async def eceg_lzw_lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
     k_val: int = Form(4, ge=1, le=8),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: int = Form(
-        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+    max_chars: Optional[int] = Form(
+        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
 
     NIK: str = Form("1771010101900001",
                     description="Nomor Induk Kependudukan"),
@@ -633,8 +634,8 @@ async def eceg_huffman_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: int = Form(
-        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+    max_chars: Optional[int] = Form(
+        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
 
     NIK: str = Form("1771010101900001",
                     description="Nomor Induk Kependudukan"),
@@ -757,8 +758,8 @@ async def lzw_eceg_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: int = Form(
-        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+    max_chars: Optional[int] = Form(
+        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
 
     NIK: str = Form("1771010101900001",
                     description="Nomor Induk Kependudukan"),
@@ -884,8 +885,8 @@ async def huffman_eceg_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: int = Form(
-        ..., description="Kapasitas karakter maksimum untuk padding, didapat dari endpoint /calculate-capacity."),
+    max_chars: Optional[int] = Form(
+        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
 
     NIK: str = Form("1771010101900001",
                     description="Nomor Induk Kependudukan"),

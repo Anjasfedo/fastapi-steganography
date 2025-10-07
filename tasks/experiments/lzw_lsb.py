@@ -2,6 +2,7 @@ import os
 import tempfile
 import math
 from main_celery import celery
+from typing import Optional
 from methods.steganography.lsb import LeastSignificantBit
 from methods.lossless_compression.lzw import LZW
 from s3.main import S3_BUCKET
@@ -23,7 +24,7 @@ lzw = LZW()
 
 
 @celery.task(name="tasks.experiments.lzw_lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: int,
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: Optional[int] = None,
                NIK: str,
                Nama: str,
                Tempat_Tgl_Lahir: str,
@@ -61,7 +62,13 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
 
         message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
         self.update_state(meta={"stage": "Data Serialized", "progress": 15})
-        padded_plaintext = pad_message_to_capacity(message_block, max_chars)
+
+        if max_chars is not None and max_chars > 0:
+            padded_plaintext = pad_message_to_capacity(message_block, max_chars)
+            self.update_state(meta={"stage": "Message Padded", "progress": 25})
+        else:
+            padded_plaintext = message_block # Langsung gunakan pesan tanpa padding
+            self.update_state(meta={"stage": "Padding Skipped", "progress": 25})
 
         # 2. Kompresi dengan LZW
         compressed_bits, bit_width = lzw.compress(padded_plaintext)

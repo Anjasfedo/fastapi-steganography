@@ -8,6 +8,7 @@ from s3.utils import download_to_tmp, upload_bytes_and_get_key, presign_get_url
 from methods.preprocess.data_serialization import serialize_record, deserialize_record
 from methods.preprocess.padding_data import pad_message_to_capacity
 from helpers.message_bit import message_to_bit, bit_to_message
+from typing import Optional
 from methods.steganography.metrics import StegoMetrics
 from methods.lossless_compression.metrics import CompressionMetrics
 
@@ -19,7 +20,7 @@ KTP_FIELD_ORDER = [
 
 
 @celery.task(name="tasks.experiments.lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: int,
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: Optional[int] = None,
                NIK: str,
                Nama: str,
                Tempat_Tgl_Lahir: str,
@@ -69,8 +70,12 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
         message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
         self.update_state(meta={"stage": "Data Serialized", "progress": 45})
 
-        final_message = pad_message_to_capacity(message_block, max_chars)
-        self.update_state(meta={"stage": "Message Padded", "progress": 60})
+        if max_chars is not None and max_chars > 0:
+            final_message = pad_message_to_capacity(message_block, max_chars)
+            self.update_state(meta={"stage": "Message Padded", "progress": 60})
+        else:
+            final_message = message_block # Langsung gunakan pesan tanpa padding
+            self.update_state(meta={"stage": "Padding Skipped", "progress": 60})
 
         fd, stego_out_path = tempfile.mkstemp(suffix=".png")
         os.close(fd)
