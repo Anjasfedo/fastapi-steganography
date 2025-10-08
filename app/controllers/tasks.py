@@ -40,7 +40,7 @@ async def get_task_status(task_id: str):
     return api_response(data=response_data)
 
 
-
+@router.websocket("/ws/{task_id}")
 async def task_status_ws(websocket: WebSocket, task_id: str):
     await websocket.accept()
     try:
