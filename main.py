@@ -11,25 +11,14 @@ from app.controllers.experiments import router as experiments_router
 
 app = FastAPI()
 
-# --- CORS Middleware Configuration ---
-# Define the list of origins that are allowed to make requests to this server.
-# We include localhost on different ports, which is common for development.
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:3000",
-]
-
-# Add the CORS middleware to the FastAPI application.
-# This will attach the necessary CORS headers to all responses.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allow specific origins
-    allow_credentials=True, # Allow cookies and authentication headers
-    allow_methods=["*"],    # Allow all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],    # Allow all headers
+    allow_origins=["*"],          # Allow all origins
+    allow_credentials=True,      # Allow cookies/auth headers
+    allow_methods=["*"],          # Allow all HTTP methods
+    allow_headers=["*"],          # Allow all headers
 )
+
 # ------------------------------------
 
 app.include_router(experiments_router, prefix='/api/v1/experiments', tags=["Experiments"])
