@@ -48,7 +48,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, plai
         codebook_key = upload_bytes_and_get_key(
             folder_prefix, f"huffman-codes_{os.urandom(4).hex()}.json", codebook_bytes, "application/json"
         )
-                codebook_url = presign_get_url(codebook_key)
+        codebook_url = presign_get_url(codebook_key)
         self.update_state(meta={"stage": "Codebook Uploaded", "progress": 70})
 
         cover_path = download_to_tmp(S3_BUCKET, cover_key)
