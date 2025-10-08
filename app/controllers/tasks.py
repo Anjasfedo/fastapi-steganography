@@ -41,10 +41,10 @@ async def get_task_status(task_id: str):
 
 
 
-@router.websocket("/{task_id}/ws")
 async def task_status_ws(websocket: WebSocket, task_id: str):
     await websocket.accept()
     try:
+        # --- Kirim status awal dengan lebih lengkap ---
         result = celery.AsyncResult(task_id)
         info = result.info if isinstance(result.info, dict) else {}
 
@@ -63,7 +63,7 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
         last_info = None
 
         while True:
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(1.0) # Polling setiap 1 detik
 
             ar = celery.AsyncResult(task_id)
             state = ar.state
@@ -88,13 +88,16 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
                     await websocket.close(code=1011)
                     break
                 else:
+                    # Kirim pembaruan progress/stage
                     await websocket.send_json(payload)
 
                 last_state, last_info = state, info
 
     except WebSocketDisconnect:
+        # Klien menutup koneksi, tidak perlu melakukan apa-apa
         return
     except Exception as e:
+        # Tangani error tak terduga
         try:
             await websocket.send_json({"task_id": task_id, "status": "ERROR", "error": str(e)})
         finally:
