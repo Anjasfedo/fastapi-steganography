@@ -2,10 +2,10 @@
 // Based on actual return values from tasks/experiments/*.py files
 
 // Base task result structure
-export interface BaseTaskResult {
+export interface BaseTaskResult<T> {
   task_id: string;
   status: "SUCCESS";
-  result: any;
+  result: T;
 }
 
 // LSB Task Results
@@ -192,19 +192,15 @@ export type ExtractTaskResult =
   | HuffmanLsbExtractTaskResult;
 
 // Complete task response types
-export type EmbedTaskResponse<T extends EmbedTaskResult = EmbedTaskResult> = BaseTaskResult & {
-  result: T;
-};
+export type EmbedTaskResponse<T extends EmbedTaskResult = EmbedTaskResult> = BaseTaskResult<T>;
 
-export type ExtractTaskResponse<T extends ExtractTaskResult = ExtractTaskResult> = BaseTaskResult & {
-  result: T;
-};
+export type ExtractTaskResponse<T extends ExtractTaskResult = ExtractTaskResult> = BaseTaskResult<T>;
 
 // Task metadata types (from update_state calls)
 export interface TaskMetadata {
   stage: string;
   progress: number;
-  [key: string]: any;
+  [key: string]: string | number | boolean | undefined;
 }
 
 // ECEG task metadata stages

@@ -9,7 +9,7 @@ export * from './tasks.types';
 export * from './task-results.types';
 
 // Common utility types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   status: boolean;
   message: string;
   data: T;
@@ -22,7 +22,7 @@ export interface ApiErrorResponse {
   error: string;
 }
 
-export interface PaginatedResponse<T = any> {
+export interface PaginatedResponse<T = unknown> {
   status: boolean;
   message: string;
   data: {
@@ -104,7 +104,7 @@ export type TaskIdFromUrl<T extends string> = T extends `/tasks/${infer U}/ws`
 export interface ValidationError {
   field: string;
   message: string;
-  value?: any;
+  value?: string | number | boolean;
 }
 
 export interface FormValidationError {
@@ -132,7 +132,7 @@ export interface CompressionMetrics {
   ss: number | 'inf'; // Space saving percentage
 }
 
-export interface FullMetrics extends ImageMetrics, CompressionMetrics {}
+export interface FullMetrics extends ImageMetrics, CompressionMetrics { }
 
 // Utility type for optional parameters
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
