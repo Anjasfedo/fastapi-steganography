@@ -18,49 +18,35 @@ from methods.lossless_compression.metrics import CompressionMetrics
 eceg = EllipticCurveElGamal()
 
 
-@celery.task(name="tasks.cryptography.huffman_coding_eceg_lsb.generate_keys_task", bind=True)
-def generate_keys_task(self):
-    """Generate and return ElGamal private and public keys."""
-    try:
-        private_key, public_key = eceg.generate_keys(
-            as_int=True)  # Generate keys
-        self.update_state(meta={"stage": "finalizing", "progress": 95})
-        return {
-            "private_key": private_key,
-            "public_key": public_key
-        }
-    except Exception as e:
-        self.update_state(state="FAILURE", meta={
-            "exc_type": type(e).__name__,
-            "exc_message": str(e),
-            "progress": 100
-        })
-        raise e
 
 
 @celery.task(name="tasks.experiments.huffman_coding_eceg_lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, plaintext: str):
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, plaintext: str):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
+        # Generate new ECEG key pair for this embed operation
+        self.update_state(meta={"stage": "Generating Keys", "progress": 10})
+        private_key, new_public_key = eceg.generate_keys(as_int=True)
+
         # Plaintext processing
-        self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
+        self.update_state(meta={"stage": "Processing Plaintext", "progress": 20})
         padded_plaintext = plaintext
-        self.update_state(meta={"stage": "Plaintext Ready", "progress": 30})
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 35})
 
         # 2. Compress with Huffman
         compressed_bit, _, codebook = HuffmanCoding.build_huffman(
             padded_plaintext)
-        self.update_state(meta={"stage": "Huffman Compressed", "progress": 30})
+        self.update_state(meta={"stage": "Huffman Compressed", "progress": 50})
 
         # 3. Bit Padding
         ascii_safe_bits = encode_with_padding_info(compressed_bit)
-        self.update_state(meta={"stage": "Bit Padded", "progress": 45})
+        self.update_state(meta={"stage": "Bit Padded", "progress": 60})
 
         # 4. Encrypt
-        ciphertext = eceg.encrypt_message(ascii_safe_bits, public_key)
-        self.update_state(meta={"stage": "Encrypted", "progress": 60})
+        ciphertext = eceg.encrypt_message(ascii_safe_bits, new_public_key)
+        self.update_state(meta={"stage": "Encrypted", "progress": 70})
 
         # 5. Upload Codebook & Embed
         folder_prefix = cover_key.rsplit("/", 1)[0]
@@ -88,7 +74,8 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, publ
         url = presign_get_url(stego_key)
 
         return {
-            "stego_key": stego_key, "url": url, "k_val": k_val, "codebook_key": codebook_key, "codebook_url": codebook_url
+            "stego_key": stego_key, "stego_url": url, "k_val": k_val, "codebook_key": codebook_key, "codebook_url": codebook_url,
+            "private_key": private_key, "public_key": new_public_key
         }
     except Exception as e:
         self.update_state(state="FAILURE", meta={
@@ -141,7 +128,7 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
 
         # Processing plaintext
         self.update_state(meta={"stage": "Processing plaintext", "progress": 85})
-        record = decompressed_message_block.strip()
+        record = decompressed_message_block
         self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
         metrics_calc = StegoMetrics(ori_image=original_path)
         mse, psnr, ssim = metrics_calc.calculate_metrics(stego_path)
@@ -151,15 +138,15 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
 
         comp_metrics_calc = CompressionMetrics(
             original_size_bytes=original_size_bytes)
-        compression_ratio, space_saving_percentage = comp_metrics_calc.calculate_all_metrics(
+        cr, ss = comp_metrics_calc.calculate_all_metrics(
             compressed_size_bytes=compressed_size_bytes)
 
         metrics_dict = {
             "mse": float(mse) if mse != float("inf") else "inf",
             "psnr": float(psnr) if psnr != float("inf") else "inf",
             "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-            "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
+            "cr": float(cr) if cr != float("inf") else "inf",
+            "ss": float(ss) if ss != float("inf") else "inf"
         }
 
         # Mengembalikan satu objek dengan record yang sesuai

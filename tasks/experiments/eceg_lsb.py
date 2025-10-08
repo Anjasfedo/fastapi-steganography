@@ -17,40 +17,26 @@ from methods.lossless_compression.metrics import CompressionMetrics
 eceg = EllipticCurveElGamal()
 
 
-@celery.task(name="tasks.cryptography.eceg_lsb.generate_keys_task", bind=True)
-def generate_keys_task(self):
-    """Generate and return ElGamal private and public keys."""
-    try:
-        private_key, public_key = eceg.generate_keys(
-            as_int=True)  # Generate keys
-        self.update_state(meta={"stage": "finalizing", "progress": 95})
-        return {
-            "private_key": private_key,
-            "public_key": public_key
-        }
-    except Exception as e:
-        self.update_state(state="FAILURE", meta={
-            "exc_type": type(e).__name__,
-            "exc_message": str(e),
-            "progress": 100
-        })
-        raise e
 
 
 @celery.task(name="tasks.experiments.eceg_lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, plaintext: str):
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, plaintext: str):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
+        # Generate new ECEG key pair for this embed operation
+        self.update_state(meta={"stage": "Generating Keys", "progress": 10})
+        private_key, new_public_key = eceg.generate_keys(as_int=True)
+
         # Plaintext processing
-        self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
+        self.update_state(meta={"stage": "Processing Plaintext", "progress": 20})
         padded_plaintext = plaintext
-        self.update_state(meta={"stage": "Plaintext Ready", "progress": 25})
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 35})
 
         # Encrypt the message
-        ciphertext = eceg.encrypt_message(padded_plaintext, public_key)
-        self.update_state(meta={"stage": "Message Encrypted", "progress": 50})
+        ciphertext = eceg.encrypt_message(padded_plaintext, new_public_key)
+        self.update_state(meta={"stage": "Message Encrypted", "progress": 60})
 
         msg_bits = message_to_bit(ciphertext)
 
@@ -71,7 +57,8 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, publ
         url = presign_get_url(stego_key)
 
         return {
-            "stego_key": stego_key, "url": url, "k_val": k_val
+            "stego_key": stego_key, "stego_url": url, "k_val": k_val,
+            "private_key": private_key, "public_key": new_public_key
         }
     except Exception as e:
         self.update_state(state="FAILURE", meta={
@@ -111,7 +98,7 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
 
         # Processing plaintext
         self.update_state(meta={"stage": "Processing plaintext", "progress": 60})
-        record = decrypted_padded_message.strip()
+        record = decrypted_padded_message
         self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # Hitung metrik
@@ -123,15 +110,15 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
 
         metrics_calculator = CompressionMetrics(
             original_size_bytes=original_size)
-        compression_ratio, space_saving_percentage = metrics_calculator.calculate_all_metrics(
+        cr, ss = metrics_calculator.calculate_all_metrics(
             compressed_size_bytes=compressed_size)
 
         metrics_dict = {
             "mse": float(mse) if mse != float("inf") else "inf",
             "psnr": float(psnr) if psnr != float("inf") else "inf",
             "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-            "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
+            "cr": float(cr) if cr != float("inf") else "inf",
+            "ss": float(ss) if ss != float("inf") else "inf"
         }
 
         # Mengembalikan satu objek dengan record yang sesuai

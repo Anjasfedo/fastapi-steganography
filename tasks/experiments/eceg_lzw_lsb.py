@@ -18,39 +18,25 @@ eceg = EllipticCurveElGamal()
 lzw = LZW()
 
 
-@celery.task(name="tasks.cryptography.eceg_lzw_lsb.generate_keys_task", bind=True)
-def generate_keys_task(self):
-    """Generate and return ElGamal private and public keys."""
-    try:
-        private_key, public_key = eceg.generate_keys(
-            as_int=True)  # Generate keys
-        self.update_state(meta={"stage": "finalizing", "progress": 95})
-        return {
-            "private_key": private_key,
-            "public_key": public_key
-        }
-    except Exception as e:
-        self.update_state(state="FAILURE", meta={
-            "exc_type": type(e).__name__,
-            "exc_message": str(e),
-            "progress": 100
-        })
-        raise e
 
 
 @celery.task(name="tasks.experiments.eceg_lzw_lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, plaintext: str):
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, plaintext: str):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
-        # Plaintext processing
-        self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
-        padded_plaintext = plaintext
-        self.update_state(meta={"stage": "Plaintext Ready", "progress": 20})
+        # Generate new ECEG key pair for this embed operation
+        self.update_state(meta={"stage": "Generating Keys", "progress": 10})
+        private_key, new_public_key = eceg.generate_keys(as_int=True)
 
-        ciphertext = eceg.encrypt_message(padded_plaintext, public_key)
-        self.update_state(meta={"stage": "Encrypted", "progress": 40})
+        # Plaintext processing
+        self.update_state(meta={"stage": "Processing Plaintext", "progress": 20})
+        padded_plaintext = plaintext
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 30})
+
+        ciphertext = eceg.encrypt_message(padded_plaintext, new_public_key)
+        self.update_state(meta={"stage": "Encrypted", "progress": 50})
 
         # 4. Compress
         compressed_bits, bit_width = lzw.compress(ciphertext)
@@ -75,7 +61,8 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, publ
             folder_prefix, stego_name, stego_bytes, "image/png")
         url = presign_get_url(stego_key)
 
-        return {"stego_key": stego_key, "url": url, "k_val": k_val, 'bit_width': bit_width}
+        return {"stego_key": stego_key, "stego_url": url, "k_val": k_val, 'bit_width': bit_width,
+                "private_key": private_key, "public_key": new_public_key}
     except Exception as e:
         self.update_state(state="FAILURE", meta={
                           "exc_type": type(e).__name__, "exc_message": str(e)})
@@ -112,7 +99,7 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
 
         # Processing plaintext
         self.update_state(meta={"stage": "Processing plaintext", "progress": 70})
-        record = decompressed_message_block.strip()
+        record = decompressed_message_block
         self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # 5. Metrics
@@ -124,15 +111,15 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
 
         comp_metrics_calc = CompressionMetrics(
             original_size_bytes=original_size_bytes)
-        compression_ratio, space_saving_percentage = comp_metrics_calc.calculate_all_metrics(
+        cr, ss = comp_metrics_calc.calculate_all_metrics(
             compressed_size_bytes=compressed_size_bytes)
 
         metrics_dict = {
             "mse": float(mse) if mse != float("inf") else "inf",
             "psnr": float(psnr) if psnr != float("inf") else "inf",
             "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-            "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
+            "cr": float(cr) if cr != float("inf") else "inf",
+            "ss": float(ss) if ss != float("inf") else "inf"
         }
 
         # Mengembalikan satu objek dengan record yang sesuai

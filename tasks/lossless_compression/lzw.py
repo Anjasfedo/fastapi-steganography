@@ -45,7 +45,7 @@ def decompress_task(self, *, compressed_bits: str, bit_width: int):
         # Panggil kelas metrik dengan nilai BYTES yang benar
         metrics_calculator = CompressionMetrics(
             original_size_bytes=original_size)
-        compression_ratio, space_saving_percentage = metrics_calculator.calculate_all_metrics(
+        cr, ss = metrics_calculator.calculate_all_metrics(
             compressed_size_bytes=compressed_size)
 
         self.update_state(meta={"stage": "finalizing", "progress": 95})
@@ -53,8 +53,8 @@ def decompress_task(self, *, compressed_bits: str, bit_width: int):
         return {
             "decompressed_data": decompressed_data,
             "metrics": {
-                "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-                "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf",
+                "cr": float(cr) if cr != float("inf") else "inf",
+                "ss": float(ss) if ss != float("inf") else "inf",
             },
         }
     except Exception as e:
