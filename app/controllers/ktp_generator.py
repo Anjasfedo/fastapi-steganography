@@ -13,27 +13,50 @@ ktp_generator = DummyKTPGenerator()
 
 @router.get("/generator")
 async def generate_dummy_ktp(
-    output_format: Literal['json', 'merged'] = Query(
-        default='json',
-        description="Format output: 'json' (data lengkap) atau 'merged' (string ringkas)."
+    generation_type: Literal['unique', 'repeat'] = Query(
+        default='unique',
+        description="Generation type: 'unique' (generate different KTPs) atau 'repeat' (repeat same KTP)."
+    ),
+    max_bits: int = Query(
+        default=None,
+        description="Maximum bit size for target-based generation"
+    ),
+    additional_length: int = Query(
+        default=0,
+        description="Additional length to extend max_bits"
     )
 ):
     """
     Menghasilkan data KTP palsu yang konsisten secara logis.
     """
     try:
-        # Hasilkan data KTP sebanyak 'count'
-        ktp_data = ktp_generator.generate_ktp()
-
-        if output_format == 'merged':
-            # 2. Panggil fungsi serialisasi dengan benar di sini
-            result_data = serialize_record(ktp_data, KTP_FIELD_ORDER)
+        # Check if target-based generation is requested
+        if max_bits is not None:
+            # Generate based on target length
+            result_data = ktp_generator.generate_ktp_based_on_target_length(
+                max_bits=max_bits,
+                additional_length=additional_length,
+                generation_type=generation_type
+            )
+            message = f"Successfully generated KTP data with target bit size {max_bits}"
         else:
-            # Jika tidak, kembalikan sebagai list of dictionaries (JSON)
-            result_data = ktp_data
-        print(ktp_data)
+            # Generate single KTP
+            if generation_type == 'repeat':
+                ktp_data = [ktp_generator.generate_ktp()]  # Generate once and put in list
+            else:
+                ktp_data = ktp_generator.generate_ktp()  # Generate single KTP
 
-        return api_response(data=result_data, message=f"Successfully generated {len(result_data)} KTP records.")
+            # Always serialize to merged format
+            if isinstance(ktp_data, list):
+                result_data = [serialize_record(ktp, KTP_FIELD_ORDER) for ktp in ktp_data]
+            else:
+                result_data = serialize_record(ktp_data, KTP_FIELD_ORDER)
+
+            message = f"Successfully generated {len(result_data) if isinstance(result_data, list) else 1} KTP records"
+
+        print(ktp_data if 'ktp_data' in locals() else result_data)
+
+        return api_response(data=result_data, message=message)
 
     except Exception as e:
         return api_response(

@@ -2,14 +2,21 @@ def encode_with_padding_info(bits):
     # Step 1: Calculate how much padding is needed to make the bit length a multiple of 8
     padding_needed = (8 - len(bits) % 8) % 8  # Number of bits to pad
     print(padding_needed)
+
+    # Skip padding if padding_needed is 0 or 8
+    if padding_needed == 0 or padding_needed == 8:
+        # Convert bits directly to 8-bit chunks and encode as ASCII
+        encoded_chars = [chr(int(bits[i:i+8], 2))
+                         for i in range(0, len(bits), 8)]
+        return ''.join(encoded_chars)
+
     # Step 2: Define the padding information based on padding_needed
     # Padding info:
-    # 0 -> add 5 bits, 1 -> add 4 bits, 2 -> add 3 bits, etc.
+    # 1 -> add 6 bits, 2 -> add 7 bits, 3 -> add 8 bits, etc.
     padding_info_map = {
-        0: 5,
         1: 6,
         2: 7,
-        3: 8, 
+        3: 8,
         4: 1,
         5: 2,
         6: 3,
@@ -36,6 +43,16 @@ def decode_with_padding_info(encoded):
     # Step 1: Convert the encoded ASCII string back to a bit string
     bits = ''.join(format(ord(c), '08b') for c in encoded)
 
+    # Check if this is an unpadded message (length is multiple of 8 and no padding info)
+    if len(bits) % 8 == 0 and len(bits) >= 3:
+        # Try to decode as unpadded first
+        possible_padding_info = int(bits[:3], 2)
+        if possible_padding_info == 0 or possible_padding_info == 8:
+            # This might be an unpadded message, return the bits directly
+            message_bits = bits
+            print(message_bits)
+            return message_bits
+
     # Step 2: Extract the first 3 bits as padding length information
     padding_info_bits = bits[:3]
     padding_info = int(padding_info_bits, 2)
@@ -45,7 +62,6 @@ def decode_with_padding_info(encoded):
 
     # Step 4: Define the padding map to calculate how many bits to remove
     padding_info_map = {
-        0: 5,
         1: 6,
         2: 7,
         3: 8,
