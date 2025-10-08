@@ -128,38 +128,23 @@ async def lsb_embed(
 
         # Call task based on input type
         if type == "ktp":
-            # Pass KTP data from validated object
+            # Pass KTP data as object
             task = lsb_embed_task.delay(
                 cover_key=cover_key,
                 k_val=k_val,
                 original_filename=cover_name,
                 max_chars=max_chars,
-                NIK=ktp_data.NIK,
-                Nama=ktp_data.Nama,
-                Tempat_Tgl_Lahir=ktp_data.Tempat_Tgl_Lahir,
-                Jenis_Kelamin=ktp_data.Jenis_Kelamin,
-                Gol_Darah=ktp_data.Gol_Darah,
-                Alamat=ktp_data.Alamat,
-                RT_RW=ktp_data.RT_RW,
-                Kel_Desa=ktp_data.Kel_Desa,
-                Kecamatan=ktp_data.Kecamatan,
-                Agama=ktp_data.Agama,
-                Status_Perkawinan=ktp_data.Status_Perkawinan,
-                Pekerjaan=ktp_data.Pekerjaan,
-                Kewarganegaraan=ktp_data.Kewarganegaraan,
-                Berlaku_Hingga=ktp_data.Berlaku_Hingga
+                ktp_data=ktp_data.model_dump()
             )
         else:
-            # TODO: Implement plain text functionality
-            # For now, just return a placeholder response
-            # task = lsb_embed_task.delay(
-            #     cover_key=cover_key,
-            #     k_val=k_val,
-            #     original_filename=cover_name,
-            #     max_chars=max_chars,
-            #     plaintext=plaintext
-            # )
-            return api_response(status=False, message="Plain text functionality not yet implemented", status_code=501)
+            # Pass plaintext directly
+            task = lsb_embed_task.delay(
+                cover_key=cover_key,
+                k_val=k_val,
+                original_filename=cover_name,
+                max_chars=None,  # Not needed for plaintext
+                plaintext=plaintext
+            )
 
         return api_response(data={
             "task_id": task.id,
@@ -187,6 +172,7 @@ async def lsb_extract(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
+    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
 ):
     if not (1 <= k_val <= 8):
         raise HTTPException(
@@ -219,7 +205,7 @@ async def lsb_extract(
 
         # Enqueue Celery extract task
         task = lsb_extract_task.delay(
-            stego_key=stego_key, original_key=orig_key, k_val=k_val)
+            stego_key=stego_key, original_key=orig_key, k_val=k_val, type=type)
 
         return api_response(data={
             "task_id": task.id,
@@ -302,15 +288,16 @@ async def eceg_lsb_embed(
 
         if type == "ktp":
             task = eceg_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name, public_key=public_key, max_chars=max_chars,
-                NIK=ktp_data.NIK, Nama=ktp_data.Nama, Tempat_Tgl_Lahir=ktp_data.Tempat_Tgl_Lahir, Jenis_Kelamin=ktp_data.Jenis_Kelamin,
-                Gol_Darah=ktp_data.Gol_Darah, Alamat=ktp_data.Alamat, RT_RW=ktp_data.RT_RW, Kel_Desa=ktp_data.Kel_Desa, Kecamatan=ktp_data.Kecamatan,
-                Agama=ktp_data.Agama, Status_Perkawinan=ktp_data.Status_Perkawinan, Pekerjaan=ktp_data.Pekerjaan,
-                Kewarganegaraan=ktp_data.Kewarganegaraan, Berlaku_Hingga=ktp_data.Berlaku_Hingga
+                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+                public_key=public_key, max_chars=max_chars,
+                ktp_data=ktp_data.model_dump()
             )
         else:
-            # TODO: Implement plain text functionality
-            return api_response(status=False, message="Plain text functionality not yet implemented", status_code=501)
+            task = eceg_lsb_embed_task.delay(
+                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+                public_key=public_key, max_chars=None,
+                plaintext=plaintext
+            )
 
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -328,7 +315,8 @@ async def eceg_lsb_extract(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    private_key: int = Form(..., description="Kunci privat ECEG (integer)")
+    private_key: int = Form(..., description="Kunci privat ECEG (integer)"),
+    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -347,7 +335,7 @@ async def eceg_lsb_extract(
         )
 
         task = eceg_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, type=type
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -394,14 +382,14 @@ async def lzw_lsb_embed(
             task = lzw_lsb_embed_task.delay(
                 cover_key=cover_key, k_val=k_val, original_filename=cover_name,
                 max_chars=max_chars,
-                NIK=ktp_data.NIK, Nama=ktp_data.Nama, Tempat_Tgl_Lahir=ktp_data.Tempat_Tgl_Lahir, Jenis_Kelamin=ktp_data.Jenis_Kelamin, Gol_Darah=ktp_data.Gol_Darah,
-                Alamat=ktp_data.Alamat, RT_RW=ktp_data.RT_RW, Kel_Desa=ktp_data.Kel_Desa, Kecamatan=ktp_data.Kecamatan, Agama=ktp_data.Agama,
-                Status_Perkawinan=ktp_data.Status_Perkawinan, Pekerjaan=ktp_data.Pekerjaan, Kewarganegaraan=ktp_data.Kewarganegaraan,
-                Berlaku_Hingga=ktp_data.Berlaku_Hingga
+                ktp_data=ktp_data.model_dump()
             )
         else:
-            # TODO: Implement plain text functionality
-            return api_response(status=False, message="Plain text functionality not yet implemented", status_code=501)
+            task = lzw_lsb_embed_task.delay(
+                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+                max_chars=None,
+                plaintext=plaintext
+            )
 
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -424,7 +412,8 @@ async def lzw_lsb_extract(
     bit_width: int = Form(
         ...,
         description="Lebar bit (misal: 12) yang digunakan oleh LZW untuk dekompresi, diperoleh dari hasil kompresi."
-    )
+    ),
+    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
 ):
     try:
         # ... (logika upload stego_file dan original_file untuk mendapatkan stego_key dan original_key)
@@ -441,7 +430,7 @@ async def lzw_lsb_extract(
             prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
 
         task = lzw_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, bit_width=bit_width)
+            stego_key=stego_key, original_key=original_key, k_val=k_val, bit_width=bit_width, type=type)
 
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -488,14 +477,14 @@ async def huffman_lsb_embed(
             task = huffman_coding_lsb_embed_task.delay(
                 cover_key=cover_key, k_val=k_val, original_filename=cover_name,
                 max_chars=max_chars,
-                NIK=ktp_data.NIK, Nama=ktp_data.Nama, Tempat_Tgl_Lahir=ktp_data.Tempat_Tgl_Lahir, Jenis_Kelamin=ktp_data.Jenis_Kelamin, Gol_Darah=ktp_data.Gol_Darah,
-                Alamat=ktp_data.Alamat, RT_RW=ktp_data.RT_RW, Kel_Desa=ktp_data.Kel_Desa, Kecamatan=ktp_data.Kecamatan, Agama=ktp_data.Agama,
-                Status_Perkawinan=ktp_data.Status_Perkawinan, Pekerjaan=ktp_data.Pekerjaan, Kewarganegaraan=ktp_data.Kewarganegaraan,
-                Berlaku_Hingga=ktp_data.Berlaku_Hingga
+                ktp_data=ktp_data.model_dump()
             )
         else:
-            # TODO: Implement plain text functionality
-            return api_response(status=False, message="Plain text functionality not yet implemented", status_code=501)
+            task = huffman_coding_lsb_embed_task.delay(
+                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+                max_chars=None,
+                plaintext=plaintext
+            )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start Huffman-LSB embed", error=str(e), status_code=500)
@@ -514,6 +503,7 @@ async def huffman_lsb_extract(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
+    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
 ):
     try:
         # ... (logika upload stego_file dan original_file untuk mendapatkan stego_key dan original_key)
@@ -537,7 +527,7 @@ async def huffman_lsb_extract(
         )
 
         task = huffman_coding_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, codebook_key=codebook_key
+            stego_key=stego_key, original_key=original_key, k_val=k_val, codebook_key=codebook_key, type=type
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -601,14 +591,15 @@ async def eceg_lzw_lsb_embed(
                 cover_key=cover_key, k_val=k_val, original_filename=cover_name,
                 public_key=public_key,
                 max_chars=max_chars,
-                NIK=ktp_data.NIK, Nama=ktp_data.Nama, Tempat_Tgl_Lahir=ktp_data.Tempat_Tgl_Lahir, Jenis_Kelamin=ktp_data.Jenis_Kelamin, Gol_Darah=ktp_data.Gol_Darah,
-                Alamat=ktp_data.Alamat, RT_RW=ktp_data.RT_RW, Kel_Desa=ktp_data.Kel_Desa, Kecamatan=ktp_data.Kecamatan, Agama=ktp_data.Agama,
-                Status_Perkawinan=ktp_data.Status_Perkawinan, Pekerjaan=ktp_data.Pekerjaan, Kewarganegaraan=ktp_data.Kewarganegaraan,
-                Berlaku_Hingga=ktp_data.Berlaku_Hingga
+                ktp_data=ktp_data.model_dump()
             )
         else:
-            # TODO: Implement plain text functionality
-            return api_response(status=False, message="Plain text functionality not yet implemented", status_code=501)
+            task = eceg_lzw_lsb_embed_task.delay(
+                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+                public_key=public_key,
+                max_chars=None,
+                plaintext=plaintext
+            )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start ECEG-LZW-LSB embed", error=str(e), status_code=500)
@@ -637,7 +628,8 @@ async def eceg_lzw_lsb_extract(
     bit_width: int = Form(
         ...,
         description="Lebar bit (misal: 12) yang digunakan oleh LZW untuk dekompresi, diperoleh dari hasil kompresi."
-    )
+    ),
+    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -654,7 +646,7 @@ async def eceg_lzw_lsb_extract(
             prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
 
         task = eceg_lzw_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, bit_width=bit_width
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, bit_width=bit_width, type=type
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -723,14 +715,15 @@ async def eceg_huffman_lsb_embed(
                 cover_key=cover_key, k_val=k_val, original_filename=cover_name,
                 public_key=public_key,
                 max_chars=max_chars,
-                NIK=ktp_data.NIK, Nama=ktp_data.Nama, Tempat_Tgl_Lahir=ktp_data.Tempat_Tgl_Lahir, Jenis_Kelamin=ktp_data.Jenis_Kelamin, Gol_Darah=ktp_data.Gol_Darah,
-                Alamat=ktp_data.Alamat, RT_RW=ktp_data.RT_RW, Kel_Desa=ktp_data.Kel_Desa, Kecamatan=ktp_data.Kecamatan, Agama=ktp_data.Agama,
-                Status_Perkawinan=ktp_data.Status_Perkawinan, Pekerjaan=ktp_data.Pekerjaan, Kewarganegaraan=ktp_data.Kewarganegaraan,
-                Berlaku_Hingga=ktp_data.Berlaku_Hingga
+                ktp_data=ktp_data.model_dump()
             )
         else:
-            # TODO: Implement plain text functionality
-            return api_response(status=False, message="Plain text functionality not yet implemented", status_code=501)
+            task = eceg_huffman_coding_lsb_embed_task.delay(
+                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+                public_key=public_key,
+                max_chars=None,
+                plaintext=plaintext
+            )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start ECEG-Huffman-LSB embed", error=str(e), status_code=500)
@@ -753,6 +746,7 @@ async def eceg_huffman_lsb_extract(
         ...,
         description="Kunci privat ECEG (integer) yang diperlukan untuk mendekripsi pesan."
     ),
+    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -775,7 +769,7 @@ async def eceg_huffman_lsb_extract(
         )
 
         task = eceg_huffman_coding_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key, type=type
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -844,14 +838,15 @@ async def lzw_eceg_lsb_embed(
                 cover_key=cover_key, k_val=k_val, original_filename=cover_name,
                 public_key=public_key,
                 max_chars=max_chars,
-                NIK=ktp_data.NIK, Nama=ktp_data.Nama, Tempat_Tgl_Lahir=ktp_data.Tempat_Tgl_Lahir, Jenis_Kelamin=ktp_data.Jenis_Kelamin, Gol_Darah=ktp_data.Gol_Darah,
-                Alamat=ktp_data.Alamat, RT_RW=ktp_data.RT_RW, Kel_Desa=ktp_data.Kel_Desa, Kecamatan=ktp_data.Kecamatan, Agama=ktp_data.Agama,
-                Status_Perkawinan=ktp_data.Status_Perkawinan, Pekerjaan=ktp_data.Pekerjaan, Kewarganegaraan=ktp_data.Kewarganegaraan,
-                Berlaku_Hingga=ktp_data.Berlaku_Hingga
+                ktp_data=ktp_data.model_dump()
             )
         else:
-            # TODO: Implement plain text functionality
-            return api_response(status=False, message="Plain text functionality not yet implemented", status_code=501)
+            task = lzw_eceg_lsb_embed_task.delay(
+                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+                public_key=public_key,
+                max_chars=None,
+                plaintext=plaintext
+            )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start LZW-ECEG-LSB embed", error=str(e), status_code=500)
@@ -880,7 +875,8 @@ async def lzw_eceg_lsb_extract(
     bit_width: int = Form(
         ...,
         description="Lebar bit (misal: 12) yang digunakan oleh LZW untuk dekompresi, diperoleh dari hasil kompresi."
-    )
+    ),
+    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -898,7 +894,7 @@ async def lzw_eceg_lsb_extract(
 
         task = lzw_eceg_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val,
-            private_key=private_key, bit_width=bit_width
+            private_key=private_key, bit_width=bit_width, type=type
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -967,14 +963,15 @@ async def huffman_eceg_lsb_embed(
                 cover_key=cover_key, k_val=k_val, original_filename=cover_name,
                 public_key=public_key,
                 max_chars=max_chars,
-                NIK=ktp_data.NIK, Nama=ktp_data.Nama, Tempat_Tgl_Lahir=ktp_data.Tempat_Tgl_Lahir, Jenis_Kelamin=ktp_data.Jenis_Kelamin, Gol_Darah=ktp_data.Gol_Darah,
-                Alamat=ktp_data.Alamat, RT_RW=ktp_data.RT_RW, Kel_Desa=ktp_data.Kel_Desa, Kecamatan=ktp_data.Kecamatan, Agama=ktp_data.Agama,
-                Status_Perkawinan=ktp_data.Status_Perkawinan, Pekerjaan=ktp_data.Pekerjaan, Kewarganegaraan=ktp_data.Kewarganegaraan,
-                Berlaku_Hingga=ktp_data.Berlaku_Hingga
+                ktp_data=ktp_data.model_dump()
             )
         else:
-            # TODO: Implement plain text functionality
-            return api_response(status=False, message="Plain text functionality not yet implemented", status_code=501)
+            task = huffman_coding_eceg_lsb_embed_task.delay(
+                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+                public_key=public_key,
+                max_chars=None,
+                plaintext=plaintext
+            )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start Huffman-ECEG-LSB embed", error=str(e), status_code=500)
@@ -997,6 +994,7 @@ async def huffman_eceg_lsb_extract(
         ...,
         description="Kunci privat ECEG (integer) yang diperlukan untuk mendekripsi pesan."
     ),
+    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -1019,7 +1017,7 @@ async def huffman_eceg_lsb_extract(
         )
 
         task = eceg_huffman_coding_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key, type=type
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
