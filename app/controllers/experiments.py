@@ -5,13 +5,13 @@ from pydantic import BaseModel, Field, field_validator
 from helpers.response_wrapper import api_response
 from s3.utils import upload_bytes_and_get_key
 from tasks.experiments.lsb import embed_task as lsb_embed_task, extract_task as lsb_extract_task
-from tasks.experiments.eceg_lsb import embed_task as eceg_lsb_embed_task, extract_task as eceg_lsb_extract_task, generate_keys_task as eceg_lsb_generate_keys_task
+from tasks.experiments.eceg_lsb import embed_task as eceg_lsb_embed_task, extract_task as eceg_lsb_extract_task
 from tasks.experiments.lzw_lsb import embed_task as lzw_lsb_embed_task, extract_task as lzw_lsb_extract_task
 from tasks.experiments.huffman_coding_lsb import embed_task as huffman_coding_lsb_embed_task, extract_task as huffman_coding_lsb_extract_task
-from tasks.experiments.eceg_lzw_lsb import generate_keys_task as eceg_lzw_lsb_generate_keys_task, embed_task as eceg_lzw_lsb_embed_task, extract_task as eceg_lzw_lsb_extract_task
-from tasks.experiments.eceg_huffman_coding_lsb import generate_keys_task as eceg_huffman_coding_lsb_generate_keys_task, embed_task as eceg_huffman_coding_lsb_embed_task, extract_task as eceg_huffman_coding_lsb_extract_task
-from tasks.experiments.lzw_eceg_lsb import generate_keys_task as lzw_eceg_lsb_generate_keys_task, embed_task as lzw_eceg_lsb_embed_task, extract_task as lzw_eceg_lsb_extract_task
-from tasks.experiments.huffman_coding_eceg_lsb import generate_keys_task as huffman_coding_eceg_lsb_generate_keys_task, embed_task as huffman_coding_eceg_lsb_embed_task, extract_task as huffman_coding_eceg_lsb_extract_task
+from tasks.experiments.eceg_lzw_lsb import embed_task as eceg_lzw_lsb_embed_task, extract_task as eceg_lzw_lsb_extract_task
+from tasks.experiments.eceg_huffman_coding_lsb import embed_task as eceg_huffman_coding_lsb_embed_task, extract_task as eceg_huffman_coding_lsb_extract_task
+from tasks.experiments.lzw_eceg_lsb import embed_task as lzw_eceg_lsb_embed_task, extract_task as lzw_eceg_lsb_extract_task
+from tasks.experiments.huffman_coding_eceg_lsb import embed_task as huffman_coding_eceg_lsb_embed_task, extract_task as huffman_coding_eceg_lsb_extract_task
 import os
 
 
@@ -135,24 +135,6 @@ async def lsb_extract(
 # --- Endpoint Embed ECEG+LSB ---
 
 
-@router.post("/eceg-lsb/generate-keys")
-async def eceg_lsb_generate_keys():
-    try:
-        # Enqueue Celery generate keys task
-        task = eceg_lsb_generate_keys_task.apply_async()
-
-        return api_response(data={
-            "task_id": task.id,
-            "status": "PENDING",
-            "check": f"/tasks/{task.id}",
-        })
-    except Exception as e:
-        return api_response(
-            status=False,
-            message="An unexpected server error occurred",
-            error=str(e),
-            status_code=500  # Internal Server Error
-        )
 
 
 @router.post("/eceg-lsb/embed")
@@ -164,7 +146,6 @@ async def eceg_lsb_embed(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
     plaintext: str = Form(..., description="Plain text message to embed")
 ):
 
@@ -179,7 +160,6 @@ async def eceg_lsb_embed(
 
         task = eceg_lsb_embed_task.delay(
             cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-            public_key=public_key, max_chars=None,
             plaintext=plaintext
         )
 
@@ -367,31 +347,12 @@ async def huffman_lsb_extract(
         return api_response(status=False, message="Failed to start Huffman-LSB extract", error=str(e), status_code=500)
 
 
-@router.post("/eceg-lzw-lsb/generate-keys")
-async def eceg_huffman_coding_lsb_generate_keys():
-    try:
-        # Enqueue Celery generate keys task
-        task = eceg_huffman_coding_lsb_generate_keys_task.apply_async()
-
-        return api_response(data={
-            "task_id": task.id,
-            "status": "PENDING",
-            "check": f"/tasks/{task.id}",
-        })
-    except Exception as e:
-        return api_response(
-            status=False,
-            message="An unexpected server error occurred",
-            error=str(e),
-            status_code=500  # Internal Server Error
-        )
 
 
 @router.post("/eceg-lzw-lsb/embed")
 async def eceg_lzw_lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
     k_val: int = Form(4, ge=1, le=8, description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."),
-    public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
     plaintext: str = Form(..., description="Plain text message to embed")
 ):
 
@@ -405,8 +366,6 @@ async def eceg_lzw_lsb_embed(
 
         task = eceg_lzw_lsb_embed_task.delay(
             cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-            public_key=public_key,
-            max_chars=None,
             plaintext=plaintext
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
@@ -461,24 +420,6 @@ async def eceg_lzw_lsb_extract(
         return api_response(status=False, message="Failed to start ECEG-LZW-LSB extract", error=str(e), status_code=500)
 
 
-@router.post("/eceg-huffman-coding-lsb/generate-keys")
-async def eceg_lzw_lsb_generate_keys():
-    try:
-        # Enqueue Celery generate keys task
-        task = eceg_lzw_lsb_generate_keys_task.apply_async()
-
-        return api_response(data={
-            "task_id": task.id,
-            "status": "PENDING",
-            "check": f"/tasks/{task.id}",
-        })
-    except Exception as e:
-        return api_response(
-            status=False,
-            message="An unexpected server error occurred",
-            error=str(e),
-            status_code=500  # Internal Server Error
-        )
 
 
 @router.post("/eceg-huffman-coding-lsb/embed")
@@ -490,7 +431,6 @@ async def eceg_huffman_lsb_embed(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
     plaintext: str = Form(..., description="Plain text message to embed")
 ):
 
@@ -504,8 +444,6 @@ async def eceg_huffman_lsb_embed(
 
         task = eceg_huffman_coding_lsb_embed_task.delay(
             cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-            public_key=public_key,
-            max_chars=None,
             plaintext=plaintext
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
@@ -559,24 +497,6 @@ async def eceg_huffman_lsb_extract(
         return api_response(status=False, message="Failed to start ECEG-Huffman-LSB extract", error=str(e), status_code=500)
 
 
-@router.post("/lzw-eceg-lsb/generate-keys")
-async def lzw_eceg_lsb_generate_keys():
-    try:
-        # Enqueue Celery generate keys task
-        task = lzw_eceg_lsb_generate_keys_task.apply_async()
-
-        return api_response(data={
-            "task_id": task.id,
-            "status": "PENDING",
-            "check": f"/tasks/{task.id}",
-        })
-    except Exception as e:
-        return api_response(
-            status=False,
-            message="An unexpected server error occurred",
-            error=str(e),
-            status_code=500  # Internal Server Error
-        )
 
 
 @router.post("/lzw-eceg-lsb/embed")
@@ -588,7 +508,6 @@ async def lzw_eceg_lsb_embed(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
     plaintext: str = Form(..., description="Plain text message to embed")
 ):
 
@@ -602,8 +521,6 @@ async def lzw_eceg_lsb_embed(
 
         task = lzw_eceg_lsb_embed_task.delay(
             cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-            public_key=public_key,
-            max_chars=None,
             plaintext=plaintext
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
@@ -659,24 +576,6 @@ async def lzw_eceg_lsb_extract(
         return api_response(status=False, message="Failed to start LZW-ECEG-LSB extract", error=str(e), status_code=500)
 
 
-@router.post("/huffman-coding-eceg-lsb/generate-keys")
-async def lzw_eceg_lsb_generate_keys():
-    try:
-        # Enqueue Celery generate keys task
-        task = huffman_coding_eceg_lsb_generate_keys_task.apply_async()
-
-        return api_response(data={
-            "task_id": task.id,
-            "status": "PENDING",
-            "check": f"/tasks/{task.id}",
-        })
-    except Exception as e:
-        return api_response(
-            status=False,
-            message="An unexpected server error occurred",
-            error=str(e),
-            status_code=500  # Internal Server Error
-        )
 
 
 @router.post("/huffman-coding-eceg-lsb/embed")
@@ -688,7 +587,6 @@ async def huffman_eceg_lsb_embed(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
     plaintext: str = Form(..., description="Plain text message to embed")
 ):
 
@@ -702,8 +600,6 @@ async def huffman_eceg_lsb_embed(
 
         task = huffman_coding_eceg_lsb_embed_task.delay(
             cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-            public_key=public_key,
-            max_chars=None,
             plaintext=plaintext
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})

@@ -57,7 +57,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
             folder_prefix, stego_name, stego_bytes, "image/png")
         url = presign_get_url(stego_key)
 
-        return {"stego_key": stego_key, "url": url, "k_val": k_val}
+        return {"stego_key": stego_key, "stego_url": url, "k_val": k_val}
 
     except Exception as e:
         self.update_state(state="FAILURE", meta={
@@ -90,7 +90,7 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
         # --- LANGKAH 2: Ekstrak Pesan Mentah ---
         lsb = LeastSignificantBit(k_val=k_val)
         extracted_bits = lsb.extract_message(stego_path)
-        record = bit_to_message(extracted_bits).strip()
+        record = bit_to_message(extracted_bits)
 
         self.update_state(meta={"stage": "Plaintext Extracted", "progress": 80})
 
@@ -102,15 +102,15 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
 
         metrics_calculator = CompressionMetrics(
             original_size_bytes=original_size)
-        compression_ratio, space_saving_percentage = metrics_calculator.calculate_all_metrics(
+        cr, ss = metrics_calculator.calculate_all_metrics(
             compressed_size_bytes=compressed_size)
 
         metrics_dict = {
             "mse": float(mse) if mse != float("inf") else "inf",
             "psnr": float(psnr) if psnr != float("inf") else "inf",
             "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-            "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
+            "cr": float(cr) if cr != float("inf") else "inf",
+            "ss": float(ss) if ss != float("inf") else "inf"
         }
 
         # Mengembalikan satu objek dengan record

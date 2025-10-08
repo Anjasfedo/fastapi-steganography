@@ -64,7 +64,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
             folder_prefix, stego_name, stego_bytes, "image/png")
         url = presign_get_url(stego_key)
 
-        return {"stego_key": stego_key, "url": url, "k_val": k_val, "codebook_key": codebook_key, "codebook_url": codebook_url}
+        return {"stego_key": stego_key, "stego_url": url, "k_val": k_val, "codebook_key": codebook_key, "codebook_url": codebook_url}
     except Exception as e:
         self.update_state(state="FAILURE", meta={
                           "exc_type": type(e).__name__, "exc_message": str(e)})
@@ -100,7 +100,7 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, codeboo
         with open(codebook_path, 'r') as f:
             codebook = json.load(f)
         huffman_tree = HuffmanCoding.build_huffman_tree_from_codebook(codebook)
-        record = HuffmanCoding.decode(extracted_bits, huffman_tree).strip()
+        record = HuffmanCoding.decode(extracted_bits, huffman_tree)
         self.update_state(
             meta={"stage": "Huffman Decompressed", "progress": 70})
 
@@ -108,20 +108,20 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, codeboo
         stego_metrics_calc = StegoMetrics(ori_image=original_path)
         mse, psnr, ssim = stego_metrics_calc.calculate_metrics(stego_path)
 
-        original_size_bytes = len(decompressed_message_block) * 8
+        original_size_bytes = len(record) * 8
         compressed_size_bytes = len(extracted_bits)
 
         comp_metrics_calc = CompressionMetrics(
             original_size_bytes=original_size_bytes)
-        compression_ratio, space_saving_percentage = comp_metrics_calc.calculate_all_metrics(
+        cr, ss = comp_metrics_calc.calculate_all_metrics(
             compressed_size_bytes=compressed_size_bytes)
 
         metrics_dict = {
             "mse": float(mse) if mse != float("inf") else "inf",
             "psnr": float(psnr) if psnr != float("inf") else "inf",
             "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-            "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
+            "cr": float(cr) if cr != float("inf") else "inf",
+            "ss": float(ss) if ss != float("inf") else "inf"
         }
 
         # Mengembalikan satu objek dengan record

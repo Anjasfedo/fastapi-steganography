@@ -50,7 +50,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, plai
             folder_prefix, stego_name, stego_bytes, "image/png")
         url = presign_get_url(stego_key)
 
-        return {"stego_key": stego_key, "url": url, "k_val": k_val,
+        return {"stego_key": stego_key, "stego_url": url, "k_val": k_val,
                 'bit_width': bit_width, }
     except Exception as e:
         self.update_state(state="FAILURE", meta={
@@ -84,7 +84,7 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, bit_wid
 
         # Processing plaintext
         self.update_state(meta={"stage": "Processing plaintext", "progress": 60})
-        record = decompressed_message_block.strip()
+        record = decompressed_message_block
         self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # 4. Hitung Metrik (Steganografi & Kompresi)
@@ -96,15 +96,15 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, bit_wid
 
         comp_metrics_calc = CompressionMetrics(
             original_size_bytes=original_size_bytes)
-        compression_ratio, space_saving_percentage = comp_metrics_calc.calculate_all_metrics(
+        cr, ss = comp_metrics_calc.calculate_all_metrics(
             compressed_size_bytes=compressed_size_bytes)
 
         metrics_dict = {
             "mse": float(mse) if mse != float("inf") else "inf",
             "psnr": float(psnr) if psnr != float("inf") else "inf",
             "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-            "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
+            "cr": float(cr) if cr != float("inf") else "inf",
+            "ss": float(ss) if ss != float("inf") else "inf"
         }
 
         # Mengembalikan satu objek dengan record yang sesuai

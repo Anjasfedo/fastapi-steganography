@@ -52,8 +52,8 @@ class CompressionMetrics:
             raise ValueError("Ukuran terkompresi tidak boleh negatif.")
 
         # Panggil metode statis untuk setiap perhitungan
-        compression_ratio_value = self.calculate_compression_ratio(self.original_size_bytes, compressed_size_bytes)
-        space_saving_percentage_value = self.calculate_space_saving(self.original_size_bytes, compressed_size_bytes)
+        cr_value = self.calculate_compression_ratio(self.original_size_bytes, compressed_size_bytes)
+        ss_value = self.calculate_space_saving(self.original_size_bytes, compressed_size_bytes)
         # bit_rate = self.calculate_bit_rate(compressed_size_bytes, self.original_length_chars)
-        
-        return compression_ratio_value, space_saving_percentage_value
+
+        return cr_value, ss_value

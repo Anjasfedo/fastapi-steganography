@@ -116,16 +116,15 @@ class DummyKTPGenerator:
             ktps.append(self.generate_ktp())
         return ktps
 
-    def generate_ktp_based_on_target_length(self, max_chars, max_bits, additional_length=0, generation_type='unique'):
+    def generate_ktp_based_on_target_length(self, max_bits, additional_length=0, generation_type='unique'):
         """
-        Generate unique KTP data based on the target message length (max_chars) and maximum bit size (max_bits).
+        Generate unique KTP data based on the maximum bit size (max_bits).
         It will trim the KTP data if the bit size exceeds the limit and ensure uniqueness of the data.
 
-        :param additional_length: Optional additional length to extend max_chars and max_bits
+        :param additional_length: Optional additional length to extend max_bits
         :param generation_type: 'unique' to generate different KTPs each loop, 'repeat' to repeat the same KTP
         """
-        # Increase max_chars and max_bits by the additional_length
-        max_chars += additional_length
+        # Increase max_bits by the additional_length
         max_bits += additional_length * 8  # 8 bits per character
 
         # Calculate max_characters allowed based on max_bits

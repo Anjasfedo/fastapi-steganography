@@ -17,17 +17,13 @@ async def generate_dummy_ktp(
         default='unique',
         description="Generation type: 'unique' (generate different KTPs) atau 'repeat' (repeat same KTP)."
     ),
-    max_chars: int = Query(
-        default=None,
-        description="Maximum character length for target-based generation"
-    ),
     max_bits: int = Query(
         default=None,
         description="Maximum bit size for target-based generation"
     ),
     additional_length: int = Query(
         default=0,
-        description="Additional length to extend max_chars and max_bits"
+        description="Additional length to extend max_bits"
     )
 ):
     """
@@ -35,15 +31,14 @@ async def generate_dummy_ktp(
     """
     try:
         # Check if target-based generation is requested
-        if max_chars is not None and max_bits is not None:
+        if max_bits is not None:
             # Generate based on target length
             result_data = ktp_generator.generate_ktp_based_on_target_length(
-                max_chars=max_chars,
                 max_bits=max_bits,
                 additional_length=additional_length,
                 generation_type=generation_type
             )
-            message = f"Successfully generated KTP data with target length {max_chars} characters"
+            message = f"Successfully generated KTP data with target bit size {max_bits}"
         else:
             # Generate single KTP
             if generation_type == 'repeat':
