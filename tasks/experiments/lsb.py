@@ -21,39 +21,17 @@ KTP_FIELD_ORDER = [
 
 @celery.task(name="tasks.experiments.lsb.embed_task", bind=True)
 def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: Optional[int] = None,
-               ktp_data: Optional[dict] = None,
-               plaintext: Optional[str] = None
+               plaintext: str
                ):
-    """Alur kerja untuk menyisipkan data KTP atau plaintext ke dalam gambar."""
+    """Alur kerja untuk menyisipkan plaintext ke dalam gambar."""
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
-        # Validate input parameters
-        if ktp_data is None and plaintext is None:
-            raise ValueError("Either ktp_data or plaintext must be provided")
-        if ktp_data is not None and plaintext is not None:
-            raise ValueError("Cannot provide both ktp_data and plaintext")
-
-        # Process message based on input type
-        if ktp_data is not None:
-            # KTP data processing
-            self.update_state(meta={"stage": "Processing KTP Data", "progress": 10})
-            message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
-            self.update_state(meta={"stage": "KTP Data Serialized", "progress": 45})
-
-            # Apply padding if max_chars is specified
-            if max_chars is not None and max_chars > 0:
-                final_message = pad_message_to_capacity(message_block, max_chars)
-                self.update_state(meta={"stage": "Message Padded", "progress": 60})
-            else:
-                final_message = message_block
-                self.update_state(meta={"stage": "Padding Skipped", "progress": 60})
-        else:
-            # Plaintext processing (skip serialization and padding)
-            self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
-            final_message = plaintext
-            self.update_state(meta={"stage": "Plaintext Ready", "progress": 60})
+        # Plaintext processing (already preprocessed)
+        self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
+        final_message = plaintext
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 60})
 
         # --- PERUBAHAN UTAMA: Hapus Kalkulasi Kapasitas ---
         # Langkah menghitung max_chars sekarang dilakukan di sisi klien/API.
@@ -95,9 +73,9 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
 
 
 @celery.task(name="tasks.experiments.lsb.extract_task", bind=True)
-def extract_task(self, *, stego_key: str, original_key: str, k_val: int, type: str = "ktp"):
+def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
     """
-    Mengekstrak data dari stego image (KTP atau plaintext) dan menghitung metrik.
+    Mengekstrak plaintext dari stego image dan menghitung metrik.
     """
     self.update_state(state="STARTED", meta={
                       "stage": "Downloading images", "progress": 10})
@@ -112,22 +90,14 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, type: s
         # --- LANGKAH 2: Ekstrak Pesan Mentah ---
         lsb = LeastSignificantBit(k_val=k_val)
         extracted_bits = lsb.extract_message(stego_path)
-        raw_message = bit_to_message(extracted_bits)
+        record = bit_to_message(extracted_bits).strip()
 
-        # Process extracted message based on type
-        if type == "ktp":
-            self.update_state(meta={"stage": "Deserializing KTP data", "progress": 60})
-            record = deserialize_record(raw_message.strip(), KTP_FIELD_ORDER)
-            self.update_state(meta={"stage": "KTP Record Deserialized", "progress": 80})
-        else:
-            self.update_state(meta={"stage": "Processing plaintext", "progress": 60})
-            record = raw_message.strip()
-            self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
+        self.update_state(meta={"stage": "Plaintext Extracted", "progress": 80})
 
         # --- Sisa langkah (Menghitung Metrik) tetap sama ---
         metrics_calc = StegoMetrics(ori_image=original_path)
         mse, psnr, ssim = metrics_calc.calculate_metrics(stego_path)
-        original_size = len(raw_message) * 8
+        original_size = len(extracted_bits)
         compressed_size = len(extracted_bits)
 
         metrics_calculator = CompressionMetrics(
@@ -143,10 +113,9 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, type: s
             "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
         }
 
-        # Mengembalikan satu objek dengan record yang sesuai
+        # Mengembalikan satu objek dengan record
         return {
             "record": record,
-            "type": type,
             "metrics": metrics_dict
         }
 
