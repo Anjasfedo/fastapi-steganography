@@ -15,68 +15,6 @@ from tasks.experiments.huffman_coding_eceg_lsb import generate_keys_task as huff
 import os
 
 
-class KTPData(BaseModel):
-    """KTP data model with validation"""
-    NIK: str = Field("1771010101900001", description="Nomor Induk Kependudukan", min_length=16, max_length=16)
-    Nama: str = Field("BUDI MARTAMI", description="Nama Lengkap", min_length=3, max_length=100)
-    Tempat_Tgl_Lahir: str = Field("BENGKULU, 01-01-1990", alias="Tempat_Tgl_Lahir", description="Contoh: BENGKULU, 01-01-1990", min_length=10, max_length=100)
-    Jenis_Kelamin: str = Field("LAKI-LAKI", alias="Jenis_Kelamin", description="LAKI-LAKI atau PEREMPUAN")
-    Gol_Darah: str = Field("O", alias="Gol. Darah", description="A, B, AB, atau O")
-    Alamat: str = Field("JL. JEND. SUDIRMAN NO. 1", description="Alamat lengkap", min_length=5, max_length=200)
-    RT_RW: str = Field("001/001", alias="RT_RW", description="Contoh: 001/002", min_length=5, max_length=10)
-    Kel_Desa: str = Field("ANGGUT ATAS", alias="Kel_Desa", description="Nama Kelurahan atau Desa", min_length=3, max_length=100)
-    Kecamatan: str = Field("RATU SAMBAN", description="Nama Kecamatan", min_length=3, max_length=100)
-    Agama: str = Field("ISLAM", description="Agama", min_length=3, max_length=50)
-    Status_Perkawinan: str = Field("BELUM KAWIN", alias="Status_Perkawinan", description="KAWIN/BELUM KAWIN")
-    Pekerjaan: str = Field("PELAJAR/MAHASISWA", description="Jenis Pekerjaan", min_length=3, max_length=100)
-    Kewarganegaraan: str = Field("WNI", description="Kewarganegaraan", min_length=2, max_length=10)
-    Berlaku_Hingga: str = Field("SEUMUR HIDUP", alias="Berlaku_Hingga", description="Berlaku_Hingga", min_length=3, max_length=50)
-
-    @field_validator('NIK')
-    @classmethod
-    def validate_nik(cls, v):
-        if not v.isdigit():
-            raise ValueError('NIK must be numeric')
-        return v
-
-    @field_validator('Jenis_Kelamin')
-    @classmethod
-    def validate_jenis_kelamin(cls, v):
-        allowed = ['LAKI-LAKI', 'PEREMPUAN']
-        if v.upper() not in allowed:
-            raise ValueError(f'Jenis Kelamin must be one of: {allowed}')
-        return v.upper()
-
-    @field_validator('Gol_Darah')
-    @classmethod
-    def validate_gol_darah(cls, v):
-        allowed = ['A', 'B', 'AB', 'O']
-        if v.upper() not in allowed:
-            raise ValueError(f'Golongan Darah must be one of: {allowed}')
-        return v.upper()
-
-    @field_validator('Status_Perkawinan')
-    @classmethod
-    def validate_status_perkawinan(cls, v):
-        allowed = ['KAWIN', 'BELUM KAWIN']
-        if v.upper() not in allowed:
-            raise ValueError(f'Status Perkawinan must be one of: {allowed}')
-        return v.upper()
-
-    @field_validator('Kewarganegaraan')
-    @classmethod
-    def validate_kewarganegaraan(cls, v):
-        allowed = ['WNI', 'WNA']
-        if v.upper() not in allowed:
-            raise ValueError(f'Kewarganegaraan must be one of: {allowed}')
-        return v.upper()
-
-    @field_validator('RT_RW')
-    @classmethod
-    def validate_rt_rw(cls, v):
-        if '/' not in v:
-            raise ValueError('RT_RW format must be: RT/RW')
-        return v
 
 
 router = APIRouter()
@@ -85,36 +23,17 @@ router = APIRouter()
 @router.post("/lsb/embed")
 async def lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text"),
     k_val: int = Form(
         4,
         ge=1,
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    max_chars: Optional[int] = Form(
-        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
-    plaintext: Optional[str] = Form(
-        None, description="Plain text message (required when type='plain')"),
-    ktp_data: Optional[KTPData] = Form(
-        None, description="KTP data as JSON (required when type='ktp')")
+    plaintext: str = Form(..., description="Plain text message to embed")
 ):
     """
     Menyisipkan pesan final ke dalam cover image dan memulai background task.
     """
-    # Validate input type
-    if type not in ["ktp", "plain"]:
-        return api_response(status=False, message="Invalid type. Must be 'ktp' or 'plain'", status_code=400)
-
-    # Validate required fields based on type
-    if type == "plain" and not plaintext:
-        return api_response(status=False, message="plaintext is required when type='plain'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
 
     temp_file_path = None
     try:
@@ -126,25 +45,14 @@ async def lsb_embed(
             prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png"
         )
 
-        # Call task based on input type
-        if type == "ktp":
-            # Pass KTP data as object
-            task = lsb_embed_task.delay(
-                cover_key=cover_key,
-                k_val=k_val,
-                original_filename=cover_name,
-                max_chars=max_chars,
-                ktp_data=ktp_data.model_dump()
-            )
-        else:
-            # Pass plaintext directly
-            task = lsb_embed_task.delay(
-                cover_key=cover_key,
-                k_val=k_val,
-                original_filename=cover_name,
-                max_chars=None,  # Not needed for plaintext
-                plaintext=plaintext
-            )
+        # Call task with plaintext
+        task = lsb_embed_task.delay(
+            cover_key=cover_key,
+            k_val=k_val,
+            original_filename=cover_name,
+            max_chars=None,  # Not needed for plaintext
+            plaintext=plaintext
+        )
 
         return api_response(data={
             "task_id": task.id,
@@ -171,8 +79,7 @@ async def lsb_extract(
         ge=1,
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
-    ),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
+    )
 ):
     if not (1 <= k_val <= 8):
         raise HTTPException(
@@ -205,7 +112,7 @@ async def lsb_extract(
 
         # Enqueue Celery extract task
         task = lsb_extract_task.delay(
-            stego_key=stego_key, original_key=orig_key, k_val=k_val, type=type)
+            stego_key=stego_key, original_key=orig_key, k_val=k_val)
 
         return api_response(data={
             "task_id": task.id,
@@ -251,7 +158,6 @@ async def eceg_lsb_generate_keys():
 @router.post("/eceg-lsb/embed")
 async def eceg_lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text"),
     k_val: int = Form(
         4,
         ge=1,
@@ -259,23 +165,8 @@ async def eceg_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: Optional[int] = Form(
-        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
-    plaintext: Optional[str] = Form(
-        None, description="Plain text message (required when type='plain')"),
-    ktp_data: Optional[KTPData] = Form(
-        None, description="KTP data as JSON (required when type='ktp')")
+    plaintext: str = Form(..., description="Plain text message to embed")
 ):
-    # Validate input type
-    if type not in ["ktp", "plain"]:
-        return api_response(status=False, message="Invalid type. Must be 'ktp' or 'plain'", status_code=400)
-
-    # Validate required fields based on type
-    if type == "plain" and not plaintext:
-        return api_response(status=False, message="plaintext is required when type='plain'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
 
     try:
         cover_bytes = await file.read()
@@ -286,18 +177,11 @@ async def eceg_lsb_embed(
             prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png"
         )
 
-        if type == "ktp":
-            task = eceg_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key, max_chars=max_chars,
-                ktp_data=ktp_data.model_dump()
-            )
-        else:
-            task = eceg_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key, max_chars=None,
-                plaintext=plaintext
-            )
+        task = eceg_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            public_key=public_key, max_chars=None,
+            plaintext=plaintext
+        )
 
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -315,8 +199,7 @@ async def eceg_lsb_extract(
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    private_key: int = Form(..., description="Kunci privat ECEG (integer)"),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
+    private_key: int = Form(..., description="Kunci privat ECEG (integer)")
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -335,7 +218,7 @@ async def eceg_lsb_extract(
         )
 
         task = eceg_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, type=type
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -345,30 +228,14 @@ async def eceg_lsb_extract(
 @router.post("/lzw-lsb/embed")
 async def lzw_lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text"),
     k_val: int = Form(
         4,
         ge=1,
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    max_chars: Optional[int] = Form(
-        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
-    plaintext: Optional[str] = Form(
-        None, description="Plain text message (required when type='plain')"),
-
-  ktp_data: Optional[KTPData] = Form(None, description="KTP data as JSON (required when type='ktp')")
+    plaintext: str = Form(..., description="Plain text message to embed")
 ):
-    # Validate input type
-    if type not in ["ktp", "plain"]:
-        return api_response(status=False, message="Invalid type. Must be 'ktp' or 'plain'", status_code=400)
-
-    # Validate required fields based on type
-    if type == "plain" and not plaintext:
-        return api_response(status=False, message="plaintext is required when type='plain'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
 
     try:
         cover_bytes = await file.read()
@@ -378,18 +245,11 @@ async def lzw_lsb_embed(
         cover_key = upload_bytes_and_get_key(
             prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png")
 
-        if type == "ktp":
-            task = lzw_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                max_chars=max_chars,
-                ktp_data=ktp_data.model_dump()
-            )
-        else:
-            task = lzw_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                max_chars=None,
-                plaintext=plaintext
-            )
+        task = lzw_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            max_chars=None,
+            plaintext=plaintext
+        )
 
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -412,8 +272,7 @@ async def lzw_lsb_extract(
     bit_width: int = Form(
         ...,
         description="Lebar bit (misal: 12) yang digunakan oleh LZW untuk dekompresi, diperoleh dari hasil kompresi."
-    ),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
+    )
 ):
     try:
         # ... (logika upload stego_file dan original_file untuk mendapatkan stego_key dan original_key)
@@ -430,7 +289,7 @@ async def lzw_lsb_extract(
             prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
 
         task = lzw_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, bit_width=bit_width, type=type)
+            stego_key=stego_key, original_key=original_key, k_val=k_val, bit_width=bit_width)
 
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -440,30 +299,14 @@ async def lzw_lsb_extract(
 @router.post("/huffman-coding-lsb/embed")
 async def huffman_lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text"),
     k_val: int = Form(
         4,
         ge=1,
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
-    max_chars: Optional[int] = Form(
-        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
-    plaintext: Optional[str] = Form(
-        None, description="Plain text message (required when type='plain')"),
-
-  ktp_data: Optional[KTPData] = Form(None, description="KTP data as JSON (required when type='ktp')")
+    plaintext: str = Form(..., description="Plain text message to embed")
 ):
-    # Validate input type
-    if type not in ["ktp", "plain"]:
-        return api_response(status=False, message="Invalid type. Must be 'ktp' or 'plain'", status_code=400)
-
-    # Validate required fields based on type
-    if type == "plain" and not plaintext:
-        return api_response(status=False, message="plaintext is required when type='plain'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
 
     try:
         cover_bytes = await file.read()
@@ -473,18 +316,11 @@ async def huffman_lsb_embed(
         cover_key = upload_bytes_and_get_key(
             prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png")
 
-        if type == "ktp":
-            task = huffman_coding_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                max_chars=max_chars,
-                ktp_data=ktp_data.model_dump()
-            )
-        else:
-            task = huffman_coding_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                max_chars=None,
-                plaintext=plaintext
-            )
+        task = huffman_coding_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            max_chars=None,
+            plaintext=plaintext
+        )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start Huffman-LSB embed", error=str(e), status_code=500)
@@ -502,8 +338,7 @@ async def huffman_lsb_extract(
         ge=1,
         le=8,
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
-    ),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
+    )
 ):
     try:
         # ... (logika upload stego_file dan original_file untuk mendapatkan stego_key dan original_key)
@@ -527,7 +362,7 @@ async def huffman_lsb_extract(
         )
 
         task = huffman_coding_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, codebook_key=codebook_key, type=type
+            stego_key=stego_key, original_key=original_key, k_val=k_val, codebook_key=codebook_key
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -557,26 +392,10 @@ async def eceg_huffman_coding_lsb_generate_keys():
 @router.post("/eceg-lzw-lsb/embed")
 async def eceg_lzw_lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text"),
-    k_val: int = Form(4, ge=1, le=8),
+    k_val: int = Form(4, ge=1, le=8, description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: Optional[int] = Form(
-        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
-    plaintext: Optional[str] = Form(
-        None, description="Plain text message (required when type='plain')"),
-
-  ktp_data: Optional[KTPData] = Form(None, description="KTP data as JSON (required when type='ktp')")
+    plaintext: str = Form(..., description="Plain text message to embed")
 ):
-    # Validate input type
-    if type not in ["ktp", "plain"]:
-        return api_response(status=False, message="Invalid type. Must be 'ktp' or 'plain'", status_code=400)
-
-    # Validate required fields based on type
-    if type == "plain" and not plaintext:
-        return api_response(status=False, message="plaintext is required when type='plain'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
 
     try:
         cover_bytes = await file.read()
@@ -586,20 +405,12 @@ async def eceg_lzw_lsb_embed(
         cover_key = upload_bytes_and_get_key(
             prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png")
 
-        if type == "ktp":
-            task = eceg_lzw_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key,
-                max_chars=max_chars,
-                ktp_data=ktp_data.model_dump()
-            )
-        else:
-            task = eceg_lzw_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key,
-                max_chars=None,
-                plaintext=plaintext
-            )
+        task = eceg_lzw_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            public_key=public_key,
+            max_chars=None,
+            plaintext=plaintext
+        )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start ECEG-LZW-LSB embed", error=str(e), status_code=500)
@@ -628,8 +439,7 @@ async def eceg_lzw_lsb_extract(
     bit_width: int = Form(
         ...,
         description="Lebar bit (misal: 12) yang digunakan oleh LZW untuk dekompresi, diperoleh dari hasil kompresi."
-    ),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
+    )
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -646,7 +456,7 @@ async def eceg_lzw_lsb_extract(
             prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
 
         task = eceg_lzw_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, bit_width=bit_width, type=type
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, bit_width=bit_width
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -675,8 +485,7 @@ async def eceg_lzw_lsb_generate_keys():
 
 @router.post("/eceg-huffman-coding-lsb/embed")
 async def eceg_huffman_lsb_embed(
-    file: UploadFile = File(...),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text"),
+    file: UploadFile = File(..., description="Cover image (PNG)"),
     k_val: int = Form(
         4,
         ge=1,
@@ -684,23 +493,8 @@ async def eceg_huffman_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: Optional[int] = Form(
-        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
-    plaintext: Optional[str] = Form(
-        None, description="Plain text message (required when type='plain')"),
-
-  ktp_data: Optional[KTPData] = Form(None, description="KTP data as JSON (required when type='ktp')")
+    plaintext: str = Form(..., description="Plain text message to embed")
 ):
-    # Validate input type
-    if type not in ["ktp", "plain"]:
-        return api_response(status=False, message="Invalid type. Must be 'ktp' or 'plain'", status_code=400)
-
-    # Validate required fields based on type
-    if type == "plain" and not plaintext:
-        return api_response(status=False, message="plaintext is required when type='plain'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
 
     try:
         cover_bytes = await file.read()
@@ -710,20 +504,12 @@ async def eceg_huffman_lsb_embed(
         cover_key = upload_bytes_and_get_key(
             prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png")
 
-        if type == "ktp":
-            task = eceg_huffman_coding_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key,
-                max_chars=max_chars,
-                ktp_data=ktp_data.model_dump()
-            )
-        else:
-            task = eceg_huffman_coding_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key,
-                max_chars=None,
-                plaintext=plaintext
-            )
+        task = eceg_huffman_coding_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            public_key=public_key,
+            max_chars=None,
+            plaintext=plaintext
+        )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start ECEG-Huffman-LSB embed", error=str(e), status_code=500)
@@ -745,8 +531,7 @@ async def eceg_huffman_lsb_extract(
     private_key: int = Form(
         ...,
         description="Kunci privat ECEG (integer) yang diperlukan untuk mendekripsi pesan."
-    ),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
+    )
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -769,7 +554,7 @@ async def eceg_huffman_lsb_extract(
         )
 
         task = eceg_huffman_coding_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key, type=type
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -799,7 +584,6 @@ async def lzw_eceg_lsb_generate_keys():
 @router.post("/lzw-eceg-lsb/embed")
 async def lzw_eceg_lsb_embed(
     file: UploadFile = File(..., description="Cover image (PNG)"),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text"),
     k_val: int = Form(
         4,
         ge=1,
@@ -807,23 +591,8 @@ async def lzw_eceg_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: Optional[int] = Form(
-        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
-    plaintext: Optional[str] = Form(
-        None, description="Plain text message (required when type='plain')"),
-
-  ktp_data: Optional[KTPData] = Form(None, description="KTP data as JSON (required when type='ktp')")
+    plaintext: str = Form(..., description="Plain text message to embed")
 ):
-    # Validate input type
-    if type not in ["ktp", "plain"]:
-        return api_response(status=False, message="Invalid type. Must be 'ktp' or 'plain'", status_code=400)
-
-    # Validate required fields based on type
-    if type == "plain" and not plaintext:
-        return api_response(status=False, message="plaintext is required when type='plain'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
 
     try:
         cover_bytes = await file.read()
@@ -833,20 +602,12 @@ async def lzw_eceg_lsb_embed(
         cover_key = upload_bytes_and_get_key(
             prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png")
 
-        if type == "ktp":
-            task = lzw_eceg_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key,
-                max_chars=max_chars,
-                ktp_data=ktp_data.model_dump()
-            )
-        else:
-            task = lzw_eceg_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key,
-                max_chars=None,
-                plaintext=plaintext
-            )
+        task = lzw_eceg_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            public_key=public_key,
+            max_chars=None,
+            plaintext=plaintext
+        )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start LZW-ECEG-LSB embed", error=str(e), status_code=500)
@@ -875,8 +636,7 @@ async def lzw_eceg_lsb_extract(
     bit_width: int = Form(
         ...,
         description="Lebar bit (misal: 12) yang digunakan oleh LZW untuk dekompresi, diperoleh dari hasil kompresi."
-    ),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
+    )
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -894,7 +654,7 @@ async def lzw_eceg_lsb_extract(
 
         task = lzw_eceg_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val,
-            private_key=private_key, bit_width=bit_width, type=type
+            private_key=private_key, bit_width=bit_width
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
@@ -923,8 +683,7 @@ async def lzw_eceg_lsb_generate_keys():
 
 @router.post("/huffman-coding-eceg-lsb/embed")
 async def huffman_eceg_lsb_embed(
-    file: UploadFile = File(...),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text"),
+    file: UploadFile = File(..., description="Cover image (PNG)"),
     k_val: int = Form(
         4,
         ge=1,
@@ -932,23 +691,8 @@ async def huffman_eceg_lsb_embed(
         description="Jumlah bit LSB yang digunakan (1-8). Harus sama dengan nilai saat proses embed."
     ),
     public_key: int = Form(..., description="Kunci publik ECEG (integer)"),
-    max_chars: Optional[int] = Form(
-        None, description="Opsional. Kapasitas karakter maksimum untuk padding. Jika tidak diisi, pesan tidak akan di-padding."),
-    plaintext: Optional[str] = Form(
-        None, description="Plain text message (required when type='plain')"),
-
-  ktp_data: Optional[KTPData] = Form(None, description="KTP data as JSON (required when type='ktp')")
+    plaintext: str = Form(..., description="Plain text message to embed")
 ):
-    # Validate input type
-    if type not in ["ktp", "plain"]:
-        return api_response(status=False, message="Invalid type. Must be 'ktp' or 'plain'", status_code=400)
-
-    # Validate required fields based on type
-    if type == "plain" and not plaintext:
-        return api_response(status=False, message="plaintext is required when type='plain'", status_code=400)
-
-    if type == "ktp" and not ktp_data:
-        return api_response(status=False, message="ktp_data is required when type='ktp'", status_code=400)
 
     try:
         cover_bytes = await file.read()
@@ -958,20 +702,12 @@ async def huffman_eceg_lsb_embed(
         cover_key = upload_bytes_and_get_key(
             prefix, f"cover-{cover_name}", cover_bytes, file.content_type or "image/png")
 
-        if type == "ktp":
-            task = huffman_coding_eceg_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key,
-                max_chars=max_chars,
-                ktp_data=ktp_data.model_dump()
-            )
-        else:
-            task = huffman_coding_eceg_lsb_embed_task.delay(
-                cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-                public_key=public_key,
-                max_chars=None,
-                plaintext=plaintext
-            )
+        task = huffman_coding_eceg_lsb_embed_task.delay(
+            cover_key=cover_key, k_val=k_val, original_filename=cover_name,
+            public_key=public_key,
+            max_chars=None,
+            plaintext=plaintext
+        )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:
         return api_response(status=False, message="Failed to start Huffman-ECEG-LSB embed", error=str(e), status_code=500)
@@ -993,8 +729,7 @@ async def huffman_eceg_lsb_extract(
     private_key: int = Form(
         ...,
         description="Kunci privat ECEG (integer) yang diperlukan untuk mendekripsi pesan."
-    ),
-    type: str = Query("ktp", description="Input type: 'ktp' for KTP data or 'plain' for plain text")
+    )
 ):
     try:
         stego_bytes = await stego_file.read()
@@ -1017,7 +752,7 @@ async def huffman_eceg_lsb_extract(
         )
 
         task = eceg_huffman_coding_lsb_extract_task.delay(
-            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key, type=type
+            stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
     except Exception as e:

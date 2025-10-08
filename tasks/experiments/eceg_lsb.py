@@ -8,18 +8,11 @@ from methods.steganography.lsb import LeastSignificantBit
 from methods.cryptography.eceg import EllipticCurveElGamal
 from s3.main import S3_BUCKET
 from s3.utils import download_to_tmp, upload_bytes_and_get_key, presign_get_url
-from methods.preprocess.data_serialization import serialize_record, deserialize_record, deserialize_padded_record
-from methods.preprocess.padding_data import pad_message_to_capacity
 from helpers.message_bit import message_to_bit, bit_to_message
 from methods.steganography.metrics import StegoMetrics
 from methods.lossless_compression.metrics import CompressionMetrics
 
 
-KTP_FIELD_ORDER = [
-    'NIK', 'Nama', 'Tempat_Tgl_Lahir', 'Jenis_Kelamin', 'Gol_Darah', 'Alamat',
-    'RT_RW', 'Kel_Desa', 'Kecamatan', 'Agama', 'Status_Perkawinan',
-    'Pekerjaan', 'Kewarganegaraan', 'Berlaku_Hingga'
-]
 
 eceg = EllipticCurveElGamal()
 
@@ -45,38 +38,15 @@ def generate_keys_task(self):
 
 
 @celery.task(name="tasks.experiments.eceg_lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, max_chars: Optional[int] = None,
-               ktp_data: Optional[dict] = None,
-               plaintext: Optional[str] = None):
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, plaintext: str):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
-        # Validate input parameters
-        if ktp_data is None and plaintext is None:
-            raise ValueError("Either ktp_data or plaintext must be provided")
-        if ktp_data is not None and plaintext is not None:
-            raise ValueError("Cannot provide both ktp_data and plaintext")
-
-        # Process message based on input type
-        if ktp_data is not None:
-            # KTP data processing
-            self.update_state(meta={"stage": "Processing KTP Data", "progress": 10})
-            message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
-            self.update_state(meta={"stage": "KTP Data Serialized", "progress": 15})
-
-            # Apply padding if max_chars is specified
-            if max_chars is not None and max_chars > 0:
-                padded_plaintext = pad_message_to_capacity(message_block, max_chars)
-                self.update_state(meta={"stage": "Message Padded", "progress": 25})
-            else:
-                padded_plaintext = message_block
-                self.update_state(meta={"stage": "Padding Skipped", "progress": 25})
-        else:
-            # Plaintext processing (skip serialization and padding)
-            self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
-            padded_plaintext = plaintext
-            self.update_state(meta={"stage": "Plaintext Ready", "progress": 25})
+        # Plaintext processing
+        self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
+        padded_plaintext = plaintext
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 25})
 
         # Encrypt the message
         ciphertext = eceg.encrypt_message(padded_plaintext, public_key)
@@ -117,7 +87,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, publ
 
 
 @celery.task(name="tasks.experiments.eceg_lsb.extract_task", bind=True)
-def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private_key: int, type: str = "ktp"):
+def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private_key: int):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 10})
     stego_path = original_path = None
@@ -139,15 +109,10 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
 
         self.update_state(meta={"stage": "ECEG Decrypted", "progress": 60})
 
-        # Process extracted message based on type
-        if type == "ktp":
-            self.update_state(meta={"stage": "Deserializing KTP data", "progress": 60})
-            record = deserialize_record(decrypted_padded_message, KTP_FIELD_ORDER)
-            self.update_state(meta={"stage": "KTP Record Deserialized", "progress": 80})
-        else:
-            self.update_state(meta={"stage": "Processing plaintext", "progress": 60})
-            record = decrypted_padded_message.strip()
-            self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
+        # Processing plaintext
+        self.update_state(meta={"stage": "Processing plaintext", "progress": 60})
+        record = decrypted_padded_message.strip()
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # Hitung metrik
         metrics_calc = StegoMetrics(ori_image=original_path)
@@ -172,7 +137,6 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
         # Mengembalikan satu objek dengan record yang sesuai
         return {
             "record": record,
-            "type": type,
             "metrics": metrics_dict
         }
     except Exception as e:

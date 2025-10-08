@@ -24,38 +24,16 @@ KTP_FIELD_ORDER = [
 
 @celery.task(name="tasks.experiments.huffman_coding_lsb.embed_task", bind=True)
 def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: Optional[int] = None,
-               ktp_data: Optional[dict] = None,
-               plaintext: Optional[str] = None):
-    """Alur kerja untuk menyisipkan data KTP atau plaintext ke dalam gambar dengan kompresi Huffman."""
+               plaintext: str):
+    """Alur kerja untuk menyisipkan plaintext ke dalam gambar dengan kompresi Huffman."""
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
-        # Validate input parameters
-        if ktp_data is None and plaintext is None:
-            raise ValueError("Either ktp_data or plaintext must be provided")
-        if ktp_data is not None and plaintext is not None:
-            raise ValueError("Cannot provide both ktp_data and plaintext")
-
-        # Process message based on input type
-        if ktp_data is not None:
-            # KTP data processing
-            self.update_state(meta={"stage": "Processing KTP Data", "progress": 10})
-            message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
-            self.update_state(meta={"stage": "KTP Data Serialized", "progress": 45})
-
-            # Apply padding if max_chars is specified
-            if max_chars is not None and max_chars > 0:
-                final_message = pad_message_to_capacity(message_block, max_chars)
-                self.update_state(meta={"stage": "Message Padded", "progress": 60})
-            else:
-                final_message = message_block
-                self.update_state(meta={"stage": "Padding Skipped", "progress": 60})
-        else:
-            # Plaintext processing (skip serialization and padding)
-            self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
-            final_message = plaintext
-            self.update_state(meta={"stage": "Plaintext Ready", "progress": 60})
+        # Plaintext processing (already preprocessed)
+        self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
+        final_message = plaintext
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 60})
 
         # 2. Kompresi dengan Huffman Coding
         encoded_bits, _, codebook = HuffmanCoding.build_huffman(final_message)
@@ -101,7 +79,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
 
 
 @celery.task(name="tasks.experiments.huffman_coding_lsb.extract_task", bind=True)
-def extract_task(self, *, stego_key: str, original_key: str, k_val: int, codebook_key: str, type: str = "ktp"):
+def extract_task(self, *, stego_key: str, original_key: str, k_val: int, codebook_key: str):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 10})
     stego_path = original_path = codebook_path = None
@@ -122,20 +100,9 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, codeboo
         with open(codebook_path, 'r') as f:
             codebook = json.load(f)
         huffman_tree = HuffmanCoding.build_huffman_tree_from_codebook(codebook)
-        decompressed_message_block = HuffmanCoding.decode(
-            extracted_bits, huffman_tree)
+        record = HuffmanCoding.decode(extracted_bits, huffman_tree).strip()
         self.update_state(
             meta={"stage": "Huffman Decompressed", "progress": 70})
-
-        # Process extracted message based on type
-        if type == "ktp":
-            self.update_state(meta={"stage": "Deserializing KTP data", "progress": 60})
-            record = deserialize_record(decompressed_message_block, KTP_FIELD_ORDER)
-            self.update_state(meta={"stage": "KTP Record Deserialized", "progress": 80})
-        else:
-            self.update_state(meta={"stage": "Processing plaintext", "progress": 60})
-            record = decompressed_message_block.strip()
-            self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # 5. Hitung Metrik
         stego_metrics_calc = StegoMetrics(ori_image=original_path)
@@ -157,10 +124,9 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, codeboo
             "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
         }
 
-        # Mengembalikan satu objek dengan record yang sesuai
+        # Mengembalikan satu objek dengan record
         return {
             "record": record,
-            "type": type,
             "metrics": metrics_dict
         }
     except Exception as e:
