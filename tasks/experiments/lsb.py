@@ -20,7 +20,7 @@ KTP_FIELD_ORDER = [
 
 
 @celery.task(name="tasks.experiments.lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: Optional[int] = None,
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str,
                plaintext: str
                ):
     """Alur kerja untuk menyisipkan plaintext ke dalam gambar."""

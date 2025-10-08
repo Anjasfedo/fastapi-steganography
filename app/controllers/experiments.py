@@ -50,7 +50,6 @@ async def lsb_embed(
             cover_key=cover_key,
             k_val=k_val,
             original_filename=cover_name,
-            max_chars=None,  # Not needed for plaintext
             plaintext=plaintext
         )
 
@@ -227,7 +226,6 @@ async def lzw_lsb_embed(
 
         task = lzw_lsb_embed_task.delay(
             cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-            max_chars=None,
             plaintext=plaintext
         )
 
@@ -297,7 +295,6 @@ async def huffman_lsb_embed(
 
         task = huffman_coding_lsb_embed_task.delay(
             cover_key=cover_key, k_val=k_val, original_filename=cover_name,
-            max_chars=None,
             plaintext=plaintext
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
