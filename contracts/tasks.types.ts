@@ -1,6 +1,27 @@
 // Task Monitoring TypeScript Contracts
 // API Endpoints: /api/v1/tasks/*
 
+import {
+  EmbedTaskResult,
+  ExtractTaskResult,
+  LsbEmbedTaskResult,
+  LsbExtractTaskResult,
+  EcegLsbEmbedTaskResult,
+  EcegLsbExtractTaskResult,
+  EcegLzwLsbEmbedTaskResult,
+  EcegLzwLsbExtractTaskResult,
+  EcegHuffmanLsbEmbedTaskResult,
+  EcegHuffmanLsbExtractTaskResult,
+  LzwEcegLsbEmbedTaskResult,
+  LzwEcegLsbExtractTaskResult,
+  HuffmanEcegLsbEmbedTaskResult,
+  HuffmanEcegLsbExtractTaskResult,
+  LzwLsbEmbedTaskResult,
+  LzwLsbExtractTaskResult,
+  HuffmanLsbEmbedTaskResult,
+  HuffmanLsbExtractTaskResult
+} from './task-results.types';
+
 export interface TaskStatusResponse {
   status: boolean;
   message: string;
@@ -11,7 +32,23 @@ export interface TaskStatusData {
   task_id: string;
   status: TaskState;
   error?: TaskErrorInfo;
-  result?: any; // Varies by task type
+  result?:
+    | LsbEmbedTaskResult
+    | LsbExtractTaskResult
+    | EcegLsbEmbedTaskResult
+    | EcegLsbExtractTaskResult
+    | EcegLzwLsbEmbedTaskResult
+    | EcegLzwLsbExtractTaskResult
+    | EcegHuffmanLsbEmbedTaskResult
+    | EcegHuffmanLsbExtractTaskResult
+    | LzwEcegLsbEmbedTaskResult
+    | LzwEcegLsbExtractTaskResult
+    | HuffmanEcegLsbEmbedTaskResult
+    | HuffmanEcegLsbExtractTaskResult
+    | LzwLsbEmbedTaskResult
+    | LzwLsbExtractTaskResult
+    | HuffmanLsbEmbedTaskResult
+    | HuffmanLsbExtractTaskResult;
   info?: TaskInfo;
 }
 
@@ -24,7 +61,7 @@ export interface TaskErrorInfo {
 }
 
 export interface TaskInfo {
-  [key: string]: any; // Custom metadata from update_state calls
+  [key: string]: string | number | boolean; // Custom metadata from update_state calls
 }
 
 // WebSocket responses
@@ -33,7 +70,7 @@ export interface TaskWebSocketResponse {
   status: TaskState;
   stage?: string;
   progress?: number;
-  [key: string]: any; // Additional metadata from update_state
+  [key: string]: string | number | boolean | undefined; // Additional metadata from update_state
 }
 
 export interface TaskWebSocketErrorResponse {
@@ -43,13 +80,31 @@ export interface TaskWebSocketErrorResponse {
 }
 
 // Generic task success response structure
-export interface TaskSuccessResponse<T = any> {
+export interface TaskSuccessResponse<
+  T =
+    | LsbEmbedTaskResult
+    | LsbExtractTaskResult
+    | EcegLsbEmbedTaskResult
+    | EcegLsbExtractTaskResult
+    | EcegLzwLsbEmbedTaskResult
+    | EcegLzwLsbExtractTaskResult
+    | EcegHuffmanLsbEmbedTaskResult
+    | EcegHuffmanLsbExtractTaskResult
+    | LzwEcegLsbEmbedTaskResult
+    | LzwEcegLsbExtractTaskResult
+    | HuffmanEcegLsbEmbedTaskResult
+    | HuffmanEcegLsbExtractTaskResult
+    | LzwLsbEmbedTaskResult
+    | LzwLsbExtractTaskResult
+    | HuffmanLsbEmbedTaskResult
+    | HuffmanLsbExtractTaskResult
+> {
   task_id: string;
   status: "SUCCESS";
   result: T;
 }
 
-// Embed task result types
+// Embed task result types (deprecated - use specific types from task-results.types.ts)
 export interface EmbedTaskResult {
   stego_key: string;
   stego_url: string;
@@ -62,7 +117,7 @@ export interface EmbedTaskResult {
   bit_width?: number; // LZW methods
 }
 
-// Extract task result types
+// Extract task result types (deprecated - use specific types from task-results.types.ts)
 export interface ExtractTaskResult {
   record: string; // Extracted/decrypted message
   metrics: StegoMetrics;
