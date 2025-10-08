@@ -47,50 +47,37 @@ def generate_keys_task(self):
 
 @celery.task(name="tasks.experiments.eceg_lzw_lsb.embed_task", bind=True)
 def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, max_chars: Optional[int] = None,
-               NIK: str,
-               Nama: str,
-               Tempat_Tgl_Lahir: str,
-               Jenis_Kelamin: str,
-               Gol_Darah: str,
-               Alamat: str,
-               RT_RW: str,
-               Kel_Desa: str,
-               Kecamatan: str,
-               Agama: str,
-               Status_Perkawinan: str,
-               Pekerjaan: str,
-               Kewarganegaraan: str,
-               Berlaku_Hingga: str):
+               ktp_data: Optional[dict] = None,
+               plaintext: Optional[str] = None):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
-        ktp_data = {
-            "NIK": NIK,
-            "Nama": Nama,
-            "Tempat_Tgl_Lahir": Tempat_Tgl_Lahir,
-            "Jenis_Kelamin": Jenis_Kelamin,
-            "Gol_Darah": Gol_Darah,
-            "Alamat": Alamat,
-            "RT_RW": RT_RW,
-            "Kel_Desa": Kel_Desa,
-            "Kecamatan": Kecamatan,
-            "Agama": Agama,
-            "Status_Perkawinan": Status_Perkawinan,
-            "Pekerjaan": Pekerjaan,
-            "Kewarganegaraan": Kewarganegaraan,
-            "Berlaku_Hingga": Berlaku_Hingga,
-        }
+        # Validate input parameters
+        if ktp_data is None and plaintext is None:
+            raise ValueError("Either ktp_data or plaintext must be provided")
+        if ktp_data is not None and plaintext is not None:
+            raise ValueError("Cannot provide both ktp_data and plaintext")
 
-        message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
-        self.update_state(meta={"stage": "Data Serialized", "progress": 15})
+        # Process message based on input type
+        if ktp_data is not None:
+            # KTP data processing
+            self.update_state(meta={"stage": "Processing KTP Data", "progress": 10})
+            message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
+            self.update_state(meta={"stage": "KTP Data Serialized", "progress": 15})
 
-        if max_chars is not None and max_chars > 0:
-            padded_plaintext = pad_message_to_capacity(message_block, max_chars)
-            self.update_state(meta={"stage": "Message Padded", "progress": 20})
+            # Apply padding if max_chars is specified
+            if max_chars is not None and max_chars > 0:
+                padded_plaintext = pad_message_to_capacity(message_block, max_chars)
+                self.update_state(meta={"stage": "Message Padded", "progress": 20})
+            else:
+                padded_plaintext = message_block
+                self.update_state(meta={"stage": "Padding Skipped", "progress": 20})
         else:
-            padded_plaintext = message_block # Langsung gunakan pesan tanpa padding
-            self.update_state(meta={"stage": "Padding Skipped", "progress": 20})
+            # Plaintext processing (skip serialization and padding)
+            self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
+            padded_plaintext = plaintext
+            self.update_state(meta={"stage": "Plaintext Ready", "progress": 20})
 
         ciphertext = eceg.encrypt_message(padded_plaintext, public_key)
         self.update_state(meta={"stage": "Encrypted", "progress": 40})
@@ -133,7 +120,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, publ
 
 
 @celery.task(name="tasks.experiments.eceg_lzw_lsb.extract_task", bind=True)
-def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private_key: int, bit_width: int):
+def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private_key: int, bit_width: int, type: str = "ktp"):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 10})
     stego_path = original_path = None
@@ -153,10 +140,15 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
             decompressed_ciphertext, private_key)
         self.update_state(meta={"stage": "Decrypted", "progress": 70})
 
-        # 4. Deserialize (dengan potensi masalah pemotongan padding)
-        ktp_record = deserialize_padded_record(
-            decompressed_message_block, KTP_FIELD_ORDER)
-        self.update_state(meta={"stage": "Deserialized", "progress": 85})
+        # Process extracted message based on type
+        if type == "ktp":
+            self.update_state(meta={"stage": "Deserializing KTP data", "progress": 60})
+            record = deserialize_padded_record(decompressed_message_block, KTP_FIELD_ORDER)
+            self.update_state(meta={"stage": "KTP Record Deserialized", "progress": 80})
+        else:
+            self.update_state(meta={"stage": "Processing plaintext", "progress": 60})
+            record = decompressed_message_block.strip()
+            self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # 5. Metrics
         metrics_calc = StegoMetrics(ori_image=original_path)
@@ -178,8 +170,10 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
             "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
         }
 
+        # Mengembalikan satu objek dengan record yang sesuai
         return {
-            "ktp_record": ktp_record,
+            "record": record,
+            "type": type,
             "metrics": metrics_dict
         }
     except Exception as e:

@@ -21,43 +21,39 @@ KTP_FIELD_ORDER = [
 
 @celery.task(name="tasks.experiments.lsb.embed_task", bind=True)
 def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: Optional[int] = None,
-               NIK: str,
-               Nama: str,
-               Tempat_Tgl_Lahir: str,
-               Jenis_Kelamin: str,
-               Gol_Darah: str,
-               Alamat: str,
-               RT_RW: str,
-               Kel_Desa: str,
-               Kecamatan: str,
-               Agama: str,
-               Status_Perkawinan: str,
-               Pekerjaan: str,
-               Kewarganegaraan: str,
-               Berlaku_Hingga: str
+               ktp_data: Optional[dict] = None,
+               plaintext: Optional[str] = None
                ):
-    """Alur kerja untuk menyisipkan satu data KTP ke dalam gambar."""
+    """Alur kerja untuk menyisipkan data KTP atau plaintext ke dalam gambar."""
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
-        # 1. Susun kembali dictionary dari parameter individual
-        ktp_data = {
-            "NIK": NIK,
-            "Nama": Nama,
-            "Tempat_Tgl_Lahir": Tempat_Tgl_Lahir,
-            "Jenis_Kelamin": Jenis_Kelamin,
-            "Gol_Darah": Gol_Darah,
-            "Alamat": Alamat,
-            "RT_RW": RT_RW,
-            "Kel_Desa": Kel_Desa,
-            "Kecamatan": Kecamatan,
-            "Agama": Agama,
-            "Status_Perkawinan": Status_Perkawinan,
-            "Pekerjaan": Pekerjaan,
-            "Kewarganegaraan": Kewarganegaraan,
-            "Berlaku_Hingga": Berlaku_Hingga,
-        }
+        # Validate input parameters
+        if ktp_data is None and plaintext is None:
+            raise ValueError("Either ktp_data or plaintext must be provided")
+        if ktp_data is not None and plaintext is not None:
+            raise ValueError("Cannot provide both ktp_data and plaintext")
+
+        # Process message based on input type
+        if ktp_data is not None:
+            # KTP data processing
+            self.update_state(meta={"stage": "Processing KTP Data", "progress": 10})
+            message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
+            self.update_state(meta={"stage": "KTP Data Serialized", "progress": 45})
+
+            # Apply padding if max_chars is specified
+            if max_chars is not None and max_chars > 0:
+                final_message = pad_message_to_capacity(message_block, max_chars)
+                self.update_state(meta={"stage": "Message Padded", "progress": 60})
+            else:
+                final_message = message_block
+                self.update_state(meta={"stage": "Padding Skipped", "progress": 60})
+        else:
+            # Plaintext processing (skip serialization and padding)
+            self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
+            final_message = plaintext
+            self.update_state(meta={"stage": "Plaintext Ready", "progress": 60})
 
         # --- PERUBAHAN UTAMA: Hapus Kalkulasi Kapasitas ---
         # Langkah menghitung max_chars sekarang dilakukan di sisi klien/API.
@@ -65,17 +61,6 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
         cover_path = download_to_tmp(S3_BUCKET, cover_key)
         lsb = LeastSignificantBit(k_val=k_val)
         self.update_state(meta={"stage": "Cover Downloaded", "progress": 15})
-
-        # --- Sisa alur kerja menggunakan max_chars dari parameter ---
-        message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
-        self.update_state(meta={"stage": "Data Serialized", "progress": 45})
-
-        if max_chars is not None and max_chars > 0:
-            final_message = pad_message_to_capacity(message_block, max_chars)
-            self.update_state(meta={"stage": "Message Padded", "progress": 60})
-        else:
-            final_message = message_block # Langsung gunakan pesan tanpa padding
-            self.update_state(meta={"stage": "Padding Skipped", "progress": 60})
 
         fd, stego_out_path = tempfile.mkstemp(suffix=".png")
         os.close(fd)
@@ -110,9 +95,9 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
 
 
 @celery.task(name="tasks.experiments.lsb.extract_task", bind=True)
-def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
+def extract_task(self, *, stego_key: str, original_key: str, k_val: int, type: str = "ktp"):
     """
-    Mengekstrak, men-deserialize data KTP, dan menghitung metrik dari stego image.
+    Mengekstrak data dari stego image (KTP atau plaintext) dan menghitung metrik.
     """
     self.update_state(state="STARTED", meta={
                       "stage": "Downloading images", "progress": 10})
@@ -128,12 +113,16 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
         lsb = LeastSignificantBit(k_val=k_val)
         extracted_bits = lsb.extract_message(stego_path)
         raw_message = bit_to_message(extracted_bits)
-        self.update_state(
-            meta={"stage": "Deserializing KTP data", "progress": 60})
 
-        ktp_record = deserialize_record(raw_message.strip(), KTP_FIELD_ORDER)
-        self.update_state(
-            meta={"stage": "Deserializing Record", "progress": 80})
+        # Process extracted message based on type
+        if type == "ktp":
+            self.update_state(meta={"stage": "Deserializing KTP data", "progress": 60})
+            record = deserialize_record(raw_message.strip(), KTP_FIELD_ORDER)
+            self.update_state(meta={"stage": "KTP Record Deserialized", "progress": 80})
+        else:
+            self.update_state(meta={"stage": "Processing plaintext", "progress": 60})
+            record = raw_message.strip()
+            self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # --- Sisa langkah (Menghitung Metrik) tetap sama ---
         metrics_calc = StegoMetrics(ori_image=original_path)
@@ -154,9 +143,10 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
             "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
         }
 
-        # Mengembalikan satu objek, bukan list
+        # Mengembalikan satu objek dengan record yang sesuai
         return {
-            "ktp_record": ktp_record,
+            "record": record,
+            "type": type,
             "metrics": metrics_dict
         }
 
