@@ -46,15 +46,21 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
     try:
         # --- Kirim status awal dengan lebih lengkap ---
         result = celery.AsyncResult(task_id)
-        initial_info = result.info if isinstance(result.info, dict) else {}
-        await websocket.send_json({
+        info = result.info if isinstance(result.info, dict) else {}
+
+        # Send initial status with all metadata
+        payload = {
             "task_id": task_id,
             "status": result.state,
-            **initial_info  # ## <<< PERUBAHAN 1: Kirim 'info' awal
-        })
+        }
+        # Include all metadata from update_state
+        if info:
+            payload.update(info)
 
-        last_state = result.state
-        last_info = initial_info  # ## <<< PERUBAHAN 2: Lacak seluruh 'info', bukan hanya progress
+        await websocket.send_json(payload)
+
+        last_state = None
+        last_info = None
 
         while True:
             await asyncio.sleep(1.0) # Polling setiap 1 detik
@@ -63,12 +69,13 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
             state = ar.state
             info = ar.info if isinstance(ar.info, dict) else {}
 
-            # ## <<< PERUBAHAN 3: Deteksi perubahan pada state ATAU info
+            # Check if anything changed
             if state != last_state or info != last_info:
-                # Siapkan payload dasar
                 payload = {"task_id": task_id, "status": state}
-                # ## <<< PERUBAHAN 4: Gabungkan semua data dari 'info'
-                payload.update(info) 
+
+                # Include all metadata from update_state
+                if info:
+                    payload.update(info)
 
                 if state == "SUCCESS":
                     payload["result"] = ar.get()
@@ -84,7 +91,6 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
                     # Kirim pembaruan progress/stage
                     await websocket.send_json(payload)
 
-                # Perbarui state terakhir yang diketahui
                 last_state, last_info = state, info
 
     except WebSocketDisconnect:

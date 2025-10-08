@@ -17,7 +17,7 @@ def serialize_record(record: dict, field_order: list[str]) -> str:
     field_values = [str(record.get(key, '')) for key in field_order]
     
     merged = '#'.join(field_values)
-    return merged.replace(' ', '%') + '#'
+    return merged.replace(' ', '_').replace('/', '_') + '#'
 
 
 def serialize_multiple_records(records: list[dict], field_order: list[str]) -> list[str]:
@@ -46,8 +46,8 @@ def deserialize_record(record_string: str, field_order: list[str]) -> dict:
         dict: Dictionary yang berisi data KTP.
     """
     try:
-        # Lakukan proses kebalikannya: ganti '%' -> ' ', lalu pisah berdasarkan '#'
-        values = record_string.replace('%', ' ').split('#')
+        # Lakukan proses kebalikannya: ganti '_' -> ' ', lalu pisah berdasarkan '#'
+        values = record_string.replace('_', ' ').split('#')
         # Gabungkan urutan field dengan nilainya menggunakan zip
         return dict(zip(field_order, values))
     except Exception:
@@ -67,8 +67,8 @@ def deserialize_padded_record(padded_string: str, field_order: list[str]) -> dic
         dict: Dictionary yang berisi data KTP pertama yang ditemukan.
     """
     try:
-        # Hapus spasi kosong di awal/akhir dan ganti '%'
-        unpacked_string = padded_string.strip().replace('%', ' ')
+        # Hapus spasi kosong di awal/akhir dan ganti '_'
+        unpacked_string = padded_string.strip().replace('_', ' ')
         
         # Pisahkan seluruh string menjadi list nilai-nilai
         all_values = unpacked_string.split('#')

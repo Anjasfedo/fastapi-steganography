@@ -2,93 +2,41 @@ import os
 import tempfile
 import json
 import math
+from typing import Optional
 from main_celery import celery
 from methods.steganography.lsb import LeastSignificantBit
 from methods.cryptography.eceg import EllipticCurveElGamal
 from methods.lossless_compression.huffman_coding import HuffmanCoding
 from s3.main import S3_BUCKET
 from s3.utils import download_to_tmp, upload_bytes_and_get_key, presign_get_url
-from methods.preprocess.data_serialization import serialize_record, deserialize_padded_record
-from methods.preprocess.padding_data import pad_message_to_capacity
 from helpers.message_bit import message_to_bit, bit_to_message
 from methods.steganography.metrics import StegoMetrics
 from methods.lossless_compression.metrics import CompressionMetrics
 
 
-KTP_FIELD_ORDER = [
-    'NIK', 'Nama', 'Tempat_Tgl_Lahir', 'Jenis_Kelamin', 'Gol_Darah', 'Alamat',
-    'RT_RW', 'Kel_Desa', 'Kecamatan', 'Agama', 'Status_Perkawinan',
-    'Pekerjaan', 'Kewarganegaraan', 'Berlaku_Hingga'
-]
 
 eceg = EllipticCurveElGamal()
 
 
-@celery.task(name="tasks.cryptography.eceg_huffman_coding_lsb.generate_keys_task", bind=True)
-def generate_keys_task(self):
-    """Generate and return ElGamal private and public keys."""
-    try:
-        private_key, public_key = eceg.generate_keys(
-            as_int=True)  # Generate keys
-        self.update_state(meta={"stage": "finalizing", "progress": 95})
-        return {
-            "private_key": private_key,
-            "public_key": public_key
-        }
-    except Exception as e:
-        self.update_state(state="FAILURE", meta={
-            "exc_type": type(e).__name__,
-            "exc_message": str(e),
-            "progress": 100
-        })
-        raise e
 
 
 @celery.task(name="tasks.experiments.eceg_huffman_coding_lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, public_key: int, max_chars: int,
-               NIK: str,
-               Nama: str,
-               Tempat_Tgl_Lahir: str,
-               Jenis_Kelamin: str,
-               Gol_Darah: str,
-               Alamat: str,
-               RT_RW: str,
-               Kel_Desa: str,
-               Kecamatan: str,
-               Agama: str,
-               Status_Perkawinan: str,
-               Pekerjaan: str,
-               Kewarganegaraan: str,
-               Berlaku_Hingga: str):
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, plaintext: str):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
-        ktp_data = {
-            "NIK": NIK,
-            "Nama": Nama,
-            "Tempat_Tgl_Lahir": Tempat_Tgl_Lahir,
-            "Jenis_Kelamin": Jenis_Kelamin,
-            "Gol_Darah": Gol_Darah,
-            "Alamat": Alamat,
-            "RT_RW": RT_RW,
-            "Kel_Desa": Kel_Desa,
-            "Kecamatan": Kecamatan,
-            "Agama": Agama,
-            "Status_Perkawinan": Status_Perkawinan,
-            "Pekerjaan": Pekerjaan,
-            "Kewarganegaraan": Kewarganegaraan,
-            "Berlaku_Hingga": Berlaku_Hingga,
-        }
+        # Generate new ECEG key pair for this embed operation
+        self.update_state(meta={"stage": "Generating Keys", "progress": 10})
+        private_key, new_public_key = eceg.generate_keys(as_int=True)
 
-        message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
-        self.update_state(meta={"stage": "Data Serialized", "progress": 15})
+        # Plaintext processing
+        self.update_state(meta={"stage": "Processing Plaintext", "progress": 20})
+        padded_plaintext = plaintext
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 35})
 
-        padded_plaintext = pad_message_to_capacity(message_block, max_chars)
-        self.update_state(meta={"stage": "Message Padded", "progress": 30})
-
-        ciphertext = eceg.encrypt_message(padded_plaintext, public_key)
-        self.update_state(meta={"stage": "Encrypted", "progress": 40})
+        ciphertext = eceg.encrypt_message(padded_plaintext, new_public_key)
+        self.update_state(meta={"stage": "Encrypted", "progress": 50})
 
         # 4. Compress
         encoded_bits, _, codebook = HuffmanCoding.build_huffman(ciphertext)
@@ -118,7 +66,8 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, publ
         url = presign_get_url(stego_key)
 
         return {
-            "stego_key": stego_key, "url": url, "k_val": k_val, "codebook_key": codebook_key
+            "stego_key": stego_key, "stego_url": url, "k_val": k_val, "codebook_key": codebook_key,
+            "private_key": private_key, "public_key": new_public_key
         }
     except Exception as e:
         self.update_state(state="FAILURE", meta={
@@ -163,10 +112,10 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
             decompressed_ciphertext, private_key)
         self.update_state(meta={"stage": "Decrypted", "progress": 75})
 
-        # 5. Deserialize
-        ktp_record = deserialize_padded_record(
-            decompressed_message_block, KTP_FIELD_ORDER)
-        self.update_state(meta={"stage": "Deserialized", "progress": 90})
+        # Processing plaintext
+        self.update_state(meta={"stage": "Processing plaintext", "progress": 75})
+        record = decompressed_message_block
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # 6. Metrics
         stego_metrics_calc = StegoMetrics(ori_image=original_path)
@@ -177,19 +126,20 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, private
 
         comp_metrics_calc = CompressionMetrics(
             original_size_bytes=original_size_bytes)
-        compression_ratio, space_saving_percentage = comp_metrics_calc.calculate_all_metrics(
+        cr, ss = comp_metrics_calc.calculate_all_metrics(
             compressed_size_bytes=compressed_size_bytes)
 
         metrics_dict = {
             "mse": float(mse) if mse != float("inf") else "inf",
             "psnr": float(psnr) if psnr != float("inf") else "inf",
             "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-            "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
+            "cr": float(cr) if cr != float("inf") else "inf",
+            "ss": float(ss) if ss != float("inf") else "inf"
         }
 
+        # Mengembalikan satu objek dengan record yang sesuai
         return {
-            "ktp_record": ktp_record,
+            "record": record,
             "metrics": metrics_dict
         }
     except Exception as e:

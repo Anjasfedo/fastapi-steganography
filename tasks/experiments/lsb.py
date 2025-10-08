@@ -8,6 +8,7 @@ from s3.utils import download_to_tmp, upload_bytes_and_get_key, presign_get_url
 from methods.preprocess.data_serialization import serialize_record, deserialize_record
 from methods.preprocess.padding_data import pad_message_to_capacity
 from helpers.message_bit import message_to_bit, bit_to_message
+from typing import Optional
 from methods.steganography.metrics import StegoMetrics
 from methods.lossless_compression.metrics import CompressionMetrics
 
@@ -19,44 +20,18 @@ KTP_FIELD_ORDER = [
 
 
 @celery.task(name="tasks.experiments.lsb.embed_task", bind=True)
-def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: int,
-               NIK: str,
-               Nama: str,
-               Tempat_Tgl_Lahir: str,
-               Jenis_Kelamin: str,
-               Gol_Darah: str,
-               Alamat: str,
-               RT_RW: str,
-               Kel_Desa: str,
-               Kecamatan: str,
-               Agama: str,
-               Status_Perkawinan: str,
-               Pekerjaan: str,
-               Kewarganegaraan: str,
-               Berlaku_Hingga: str
+def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_chars: Optional[int] = None,
+               plaintext: str
                ):
-    """Alur kerja untuk menyisipkan satu data KTP ke dalam gambar."""
+    """Alur kerja untuk menyisipkan plaintext ke dalam gambar."""
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 5})
     cover_path = stego_out_path = None
     try:
-        # 1. Susun kembali dictionary dari parameter individual
-        ktp_data = {
-            "NIK": NIK,
-            "Nama": Nama,
-            "Tempat_Tgl_Lahir": Tempat_Tgl_Lahir,
-            "Jenis_Kelamin": Jenis_Kelamin,
-            "Gol_Darah": Gol_Darah,
-            "Alamat": Alamat,
-            "RT_RW": RT_RW,
-            "Kel_Desa": Kel_Desa,
-            "Kecamatan": Kecamatan,
-            "Agama": Agama,
-            "Status_Perkawinan": Status_Perkawinan,
-            "Pekerjaan": Pekerjaan,
-            "Kewarganegaraan": Kewarganegaraan,
-            "Berlaku_Hingga": Berlaku_Hingga,
-        }
+        # Plaintext processing (already preprocessed)
+        self.update_state(meta={"stage": "Processing Plaintext", "progress": 10})
+        final_message = plaintext
+        self.update_state(meta={"stage": "Plaintext Ready", "progress": 60})
 
         # --- PERUBAHAN UTAMA: Hapus Kalkulasi Kapasitas ---
         # Langkah menghitung max_chars sekarang dilakukan di sisi klien/API.
@@ -64,13 +39,6 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
         cover_path = download_to_tmp(S3_BUCKET, cover_key)
         lsb = LeastSignificantBit(k_val=k_val)
         self.update_state(meta={"stage": "Cover Downloaded", "progress": 15})
-
-        # --- Sisa alur kerja menggunakan max_chars dari parameter ---
-        message_block = serialize_record(ktp_data, KTP_FIELD_ORDER)
-        self.update_state(meta={"stage": "Data Serialized", "progress": 45})
-
-        final_message = pad_message_to_capacity(message_block, max_chars)
-        self.update_state(meta={"stage": "Message Padded", "progress": 60})
 
         fd, stego_out_path = tempfile.mkstemp(suffix=".png")
         os.close(fd)
@@ -89,7 +57,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
             folder_prefix, stego_name, stego_bytes, "image/png")
         url = presign_get_url(stego_key)
 
-        return {"stego_key": stego_key, "url": url, "k_val": k_val}
+        return {"stego_key": stego_key, "stego_url": url, "k_val": k_val}
 
     except Exception as e:
         self.update_state(state="FAILURE", meta={
@@ -107,7 +75,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, max_
 @celery.task(name="tasks.experiments.lsb.extract_task", bind=True)
 def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
     """
-    Mengekstrak, men-deserialize data KTP, dan menghitung metrik dari stego image.
+    Mengekstrak plaintext dari stego image dan menghitung metrik.
     """
     self.update_state(state="STARTED", meta={
                       "stage": "Downloading images", "progress": 10})
@@ -122,36 +90,32 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
         # --- LANGKAH 2: Ekstrak Pesan Mentah ---
         lsb = LeastSignificantBit(k_val=k_val)
         extracted_bits = lsb.extract_message(stego_path)
-        raw_message = bit_to_message(extracted_bits)
-        self.update_state(
-            meta={"stage": "Deserializing KTP data", "progress": 60})
+        record = bit_to_message(extracted_bits)
 
-        ktp_record = deserialize_record(raw_message.strip(), KTP_FIELD_ORDER)
-        self.update_state(
-            meta={"stage": "Deserializing Record", "progress": 80})
+        self.update_state(meta={"stage": "Plaintext Extracted", "progress": 80})
 
         # --- Sisa langkah (Menghitung Metrik) tetap sama ---
         metrics_calc = StegoMetrics(ori_image=original_path)
         mse, psnr, ssim = metrics_calc.calculate_metrics(stego_path)
-        original_size = len(raw_message) * 8
+        original_size = len(extracted_bits)
         compressed_size = len(extracted_bits)
 
         metrics_calculator = CompressionMetrics(
             original_size_bytes=original_size)
-        compression_ratio, space_saving_percentage = metrics_calculator.calculate_all_metrics(
+        cr, ss = metrics_calculator.calculate_all_metrics(
             compressed_size_bytes=compressed_size)
 
         metrics_dict = {
             "mse": float(mse) if mse != float("inf") else "inf",
             "psnr": float(psnr) if psnr != float("inf") else "inf",
             "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "compression_ratio": float(compression_ratio) if compression_ratio != float("inf") else "inf",
-            "space_saving_percentage": float(space_saving_percentage) if space_saving_percentage != float("inf") else "inf"
+            "cr": float(cr) if cr != float("inf") else "inf",
+            "ss": float(ss) if ss != float("inf") else "inf"
         }
 
-        # Mengembalikan satu objek, bukan list
+        # Mengembalikan satu objek dengan record
         return {
-            "ktp_record": ktp_record,
+            "record": record,
             "metrics": metrics_dict
         }
 

@@ -41,8 +41,8 @@ async def lsb_calculate_capacity(
         notes_string = f"Gambar ini dapat menampung hingga {formatted_max_chars} ({max_chars_in_words}) karakter."
 
         return api_response(data={
-            "max_characters": max_chars,
-            "max_bits_payload": max_bits,
+            "max_chars": max_chars,
+            "max_bits": max_bits,
             "k_val": k_val,
             "notes": notes_string,
             "dimensions": {
