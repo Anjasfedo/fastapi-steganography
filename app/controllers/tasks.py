@@ -46,14 +46,21 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
     await websocket.accept()
     try:
         result = celery.AsyncResult(task_id)
-        await websocket.send_json({
+        info = result.info if isinstance(result.info, dict) else {}
+
+        # Send initial status with all metadata
+        payload = {
             "task_id": task_id,
             "status": result.state,
-            "progress": result.info.get("progress") if isinstance(result.info, dict) else None,
-        })
+        }
+        # Include all metadata from update_state
+        if info:
+            payload.update(info)
+
+        await websocket.send_json(payload)
 
         last_state = None
-        last_progress = None
+        last_info = None
 
         while True:
             await asyncio.sleep(1.0)
@@ -61,12 +68,14 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
             ar = celery.AsyncResult(task_id)
             state = ar.state
             info = ar.info if isinstance(ar.info, dict) else {}
-            progress = info.get("progress") if isinstance(info, dict) else None
 
-            if state != last_state or progress != last_progress:
+            # Check if anything changed
+            if state != last_state or info != last_info:
                 payload = {"task_id": task_id, "status": state}
-                if progress is not None:
-                    payload["progress"] = progress
+
+                # Include all metadata from update_state
+                if info:
+                    payload.update(info)
 
                 if state == "SUCCESS":
                     payload["result"] = ar.get()
@@ -81,7 +90,7 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
                 else:
                     await websocket.send_json(payload)
 
-                last_state, last_progress = state, progress
+                last_state, last_info = state, info
 
     except WebSocketDisconnect:
         return

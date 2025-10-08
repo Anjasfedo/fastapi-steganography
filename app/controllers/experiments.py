@@ -71,8 +71,8 @@ async def lsb_embed(
 
 @router.post("/lsb/extract")
 async def lsb_extract(
-    file: UploadFile = File(..., description="Stego image (PNG/JPG/PNG)"),
-    original: UploadFile = File(...,
+    stego_image: UploadFile = File(..., description="Stego image (PNG/JPG/PNG)"),
+    original_image: UploadFile = File(...,
                                 description="Original cover image (PNG/JPG/PNG)"),
     k_val: int = Form(
         4,
@@ -86,11 +86,11 @@ async def lsb_extract(
             status_code=422, detail="k_val must be between 1 and 8")
 
     try:
-        stego_bytes = await file.read()
-        orig_bytes = await original.read()
+        stego_bytes = await stego_image.read()
+        orig_bytes = await original_image.read()
 
-        stego_name = file.filename or "stego.png"
-        orig_name = original.filename or "original.png"
+        stego_name = stego_image.filename or "stego.png"
+        orig_name = original_image.filename or "original.png"
 
         # Generate unique job_id for tracking
         job_id = uuid4().hex
@@ -101,13 +101,13 @@ async def lsb_extract(
             prefix,
             f"stego-{stego_name}",
             stego_bytes,
-            file.content_type or "image/png",
+            stego_image.content_type or "image/png",
         )
         orig_key = upload_bytes_and_get_key(
             prefix,
             f"cover-{orig_name}",
             orig_bytes,
-            original.content_type or "image/png",
+            original_image.content_type or "image/png",
         )
 
         # Enqueue Celery extract task
@@ -190,8 +190,8 @@ async def eceg_lsb_embed(
 
 @router.post("/eceg-lsb/extract")
 async def eceg_lsb_extract(
-    stego_file: UploadFile = File(..., description="File stego image (PNG)"),
-    original_file: UploadFile = File(...,
+    stego_image: UploadFile = File(..., description="File stego image (PNG)"),
+    original_image: UploadFile = File(...,
                                      description="File cover image asli (PNG)"),
     k_val: int = Form(
         4,
@@ -202,19 +202,19 @@ async def eceg_lsb_extract(
     private_key: int = Form(..., description="Kunci privat ECEG (integer)")
 ):
     try:
-        stego_bytes = await stego_file.read()
-        stego_name = stego_file.filename or "stego.png"
-        orig_bytes = await original_file.read()
-        orig_name = original_file.filename or "original.png"
+        stego_bytes = await stego_image.read()
+        stego_name = stego_image.filename or "stego.png"
+        orig_bytes = await original_image.read()
+        orig_name = original_image.filename or "original.png"
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
 
         stego_key = upload_bytes_and_get_key(
-            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png"
+            prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png"
         )
 
         original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png"
+            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png"
         )
 
         task = eceg_lsb_extract_task.delay(
@@ -260,8 +260,8 @@ async def lzw_lsb_embed(
 
 @router.post("/lzw-lsb/extract")
 async def lzw_lsb_extract(
-    stego_file: UploadFile = File(..., description="File stego image (PNG)"),
-    original_file: UploadFile = File(...,
+    stego_image: UploadFile = File(..., description="File stego image (PNG)"),
+    original_image: UploadFile = File(...,
                                      description="File cover image asli (PNG)"),
     k_val: int = Form(
         4,
@@ -275,18 +275,17 @@ async def lzw_lsb_extract(
     )
 ):
     try:
-        # ... (logika upload stego_file dan original_file untuk mendapatkan stego_key dan original_key)
-        stego_bytes = await stego_file.read()
-        stego_name = stego_file.filename or "stego.png"
-        orig_bytes = await original_file.read()
-        orig_name = original_file.filename or "original.png"
+        stego_bytes = await stego_image.read()
+        stego_name = stego_image.filename or "stego.png"
+        orig_bytes = await original_image.read()
+        orig_name = original_image.filename or "original.png"
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
 
         stego_key = upload_bytes_and_get_key(
-            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
+            prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
         original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
+            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
 
         task = lzw_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val, bit_width=bit_width)
@@ -328,8 +327,8 @@ async def huffman_lsb_embed(
 
 @router.post("/huffman-coding-lsb/extract")
 async def huffman_lsb_extract(
-    stego_file: UploadFile = File(..., description="File stego image (PNG)"),
-    original_file: UploadFile = File(...,
+    stego_image: UploadFile = File(..., description="File stego image (PNG)"),
+    original_image: UploadFile = File(...,
                                      description="File cover image asli (PNG)"),
     codebook_file: UploadFile = File(...,
                                      description="File huffman codebook (.json)"),
@@ -341,12 +340,11 @@ async def huffman_lsb_extract(
     )
 ):
     try:
-        # ... (logika upload stego_file dan original_file untuk mendapatkan stego_key dan original_key)
-        stego_bytes = await stego_file.read()
-        stego_name = stego_file.filename or "stego.png"
+        stego_bytes = await stego_image.read()
+        stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_file.read()
-        orig_name = original_file.filename or "original.png"
+        orig_bytes = await original_image.read()
+        orig_name = original_image.filename or "original.png"
 
         codebook_bytes = await codebook_file.read()
         codebook_name = codebook_file.filename or "codebook.json"
@@ -354,9 +352,9 @@ async def huffman_lsb_extract(
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
-            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
+            prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
         original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
+            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
         codebook_key = upload_bytes_and_get_key(
             prefix, f"codebook-{codebook_name}", codebook_bytes, codebook_file.content_type or "application/json"
         )
@@ -418,11 +416,11 @@ async def eceg_lzw_lsb_embed(
 
 @router.post("/eceg-lzw-lsb/extract")
 async def eceg_lzw_lsb_extract(
-    stego_file: UploadFile = File(
+    stego_image: UploadFile = File(
         ...,
         description="File gambar stego (format PNG) yang berisi data tersembunyi."
     ),
-    original_file: UploadFile = File(
+    original_image: UploadFile = File(
         ...,
         description="File gambar cover asli (format PNG) untuk perbandingan metrik kualitas."
     ),
@@ -442,18 +440,18 @@ async def eceg_lzw_lsb_extract(
     )
 ):
     try:
-        stego_bytes = await stego_file.read()
-        stego_name = stego_file.filename or "stego.png"
+        stego_bytes = await stego_image.read()
+        stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_file.read()
-        orig_name = original_file.filename or "original.png"
+        orig_bytes = await original_image.read()
+        orig_name = original_image.filename or "original.png"
 
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
-            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
+            prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
         original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
+            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
 
         task = eceg_lzw_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, bit_width=bit_width
@@ -517,8 +515,8 @@ async def eceg_huffman_lsb_embed(
 
 @router.post("/eceg-huffman-coding-lsb/extract")
 async def eceg_huffman_lsb_extract(
-    stego_file: UploadFile = File(..., description="File stego image (PNG)"),
-    original_file: UploadFile = File(...,
+    stego_image: UploadFile = File(..., description="File stego image (PNG)"),
+    original_image: UploadFile = File(...,
                                      description="File cover image asli (PNG)"),
     codebook_file: UploadFile = File(...,
                                      description="File huffman codebook (.json)"),
@@ -534,11 +532,11 @@ async def eceg_huffman_lsb_extract(
     )
 ):
     try:
-        stego_bytes = await stego_file.read()
-        stego_name = stego_file.filename or "stego.png"
+        stego_bytes = await stego_image.read()
+        stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_file.read()
-        orig_name = original_file.filename or "original.png"
+        orig_bytes = await original_image.read()
+        orig_name = original_image.filename or "original.png"
 
         codebook_bytes = await codebook_file.read()
         codebook_name = codebook_file.filename or "codebook.json"
@@ -546,9 +544,9 @@ async def eceg_huffman_lsb_extract(
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
-            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
+            prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
         original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
+            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
         codebook_key = upload_bytes_and_get_key(
             prefix, f"codebook-{codebook_name}", codebook_bytes, codebook_file.content_type or "application/json"
         )
@@ -615,11 +613,11 @@ async def lzw_eceg_lsb_embed(
 
 @router.post("/lzw-eceg-lsb/extract")
 async def lzw_eceg_lsb_extract(
-    stego_file: UploadFile = File(
+    stego_image: UploadFile = File(
         ...,
         description="File gambar stego (format PNG) yang berisi data tersembunyi."
     ),
-    original_file: UploadFile = File(
+    original_image: UploadFile = File(
         ...,
         description="File gambar cover asli (format PNG) untuk perbandingan metrik kualitas."
     ),
@@ -639,18 +637,18 @@ async def lzw_eceg_lsb_extract(
     )
 ):
     try:
-        stego_bytes = await stego_file.read()
-        stego_name = stego_file.filename or "stego.png"
+        stego_bytes = await stego_image.read()
+        stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_file.read()
-        orig_name = original_file.filename or "original.png"
+        orig_bytes = await original_image.read()
+        orig_name = original_image.filename or "original.png"
 
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
-            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
+            prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
         original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
+            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
 
         task = lzw_eceg_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val,
@@ -715,8 +713,8 @@ async def huffman_eceg_lsb_embed(
 
 @router.post("/huffman-coding-eceg-lsb/extract")
 async def huffman_eceg_lsb_extract(
-    stego_file: UploadFile = File(..., description="File stego image (PNG)"),
-    original_file: UploadFile = File(...,
+    stego_image: UploadFile = File(..., description="File stego image (PNG)"),
+    original_image: UploadFile = File(...,
                                      description="File cover image asli (PNG)"),
     codebook_file: UploadFile = File(...,
                                      description="File huffman codebook (.json)"),
@@ -732,11 +730,11 @@ async def huffman_eceg_lsb_extract(
     )
 ):
     try:
-        stego_bytes = await stego_file.read()
-        stego_name = stego_file.filename or "stego.png"
+        stego_bytes = await stego_image.read()
+        stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_file.read()
-        orig_name = original_file.filename or "original.png"
+        orig_bytes = await original_image.read()
+        orig_name = original_image.filename or "original.png"
 
         codebook_bytes = await codebook_file.read()
         codebook_name = codebook_file.filename or "codebook.json"
@@ -744,9 +742,9 @@ async def huffman_eceg_lsb_extract(
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
-            prefix, f"stego-{stego_name}", stego_bytes, stego_file.content_type or "image/png")
+            prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
         original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_file.content_type or "image/png")
+            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
         codebook_key = upload_bytes_and_get_key(
             prefix, f"codebook-{codebook_name}", codebook_bytes, codebook_file.content_type or "application/json"
         )

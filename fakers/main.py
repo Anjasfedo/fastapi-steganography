@@ -99,24 +99,7 @@ class DummyKTPGenerator:
         Merge a single KTP dictionary into a formatted string with '#' as a separator.
         Replace spaces with '%'.
         """
-        fields = [
-            ktp.get('NIK', ''),
-            ktp.get('Nama', ''),
-            ktp.get('Tempat_Tgl_Lahir', ''),
-            ktp.get('Jenis_Kelamin', ''),
-            ktp.get('Gol_Darah', ''),
-            ktp.get('Alamat', ''),
-            ktp.get('RT_RW', ''),
-            ktp.get('Kel_Desa', ''),
-            ktp.get('Kecamatan', ''),  # Added kecamatan field
-            ktp.get('Agama', ''),
-            ktp.get('Status_Perkawinan', ''),
-            ktp.get('Pekerjaan', ''),
-            ktp.get('Kewarganegaraan', ''),
-            ktp.get('Berlaku_Hingga', '')
-        ]
-
-        return serialize_record(fields, KTP_FIELD_ORDER)
+        return serialize_record(ktp, KTP_FIELD_ORDER)
 
     @staticmethod
     def merge_multiple_ktps(ktps):
