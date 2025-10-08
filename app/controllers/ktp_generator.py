@@ -13,10 +13,6 @@ ktp_generator = DummyKTPGenerator()
 
 @router.get("/generator")
 async def generate_dummy_ktp(
-    output_format: Literal['json', 'merged'] = Query(
-        default='json',
-        description="Format output: 'json' (data lengkap) atau 'merged' (string ringkas)."
-    ),
     generation_type: Literal['unique', 'repeat'] = Query(
         default='unique',
         description="Generation type: 'unique' (generate different KTPs) atau 'repeat' (repeat same KTP)."
@@ -55,18 +51,11 @@ async def generate_dummy_ktp(
             else:
                 ktp_data = ktp_generator.generate_ktp()  # Generate single KTP
 
-            if output_format == 'merged':
-                # Serialize the KTP data
-                if isinstance(ktp_data, list):
-                    result_data = [serialize_record(ktp, KTP_FIELD_ORDER) for ktp in ktp_data]
-                else:
-                    result_data = serialize_record(ktp_data, KTP_FIELD_ORDER)
+            # Always serialize to merged format
+            if isinstance(ktp_data, list):
+                result_data = [serialize_record(ktp, KTP_FIELD_ORDER) for ktp in ktp_data]
             else:
-                # Return as JSON
-                if isinstance(ktp_data, list):
-                    result_data = ktp_data
-                else:
-                    result_data = [ktp_data]  # Wrap single KTP in list for consistent JSON response
+                result_data = serialize_record(ktp_data, KTP_FIELD_ORDER)
 
             message = f"Successfully generated {len(result_data) if isinstance(result_data, list) else 1} KTP records"
 
