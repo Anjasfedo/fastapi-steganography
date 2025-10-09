@@ -71,8 +71,8 @@ async def lsb_embed(
 @router.post("/lsb/extract")
 async def lsb_extract(
     stego_image: UploadFile = File(..., description="Stego image (PNG/JPG/PNG)"),
-    original_image: UploadFile = File(...,
-                                description="Original cover image (PNG/JPG/PNG)"),
+    original_image: Optional[UploadFile] = File(None,
+                                description="Original cover image (PNG/JPG/PNG) - optional, required for steganography metrics"),
     k_val: int = Form(
         4,
         ge=1,
@@ -86,42 +86,51 @@ async def lsb_extract(
 
     try:
         stego_bytes = await stego_image.read()
-        orig_bytes = await original_image.read()
-
         stego_name = stego_image.filename or "stego.png"
-        orig_name = original_image.filename or "original.png"
 
         # Generate unique job_id for tracking
         job_id = uuid4().hex
         prefix = f"steganography/{job_id}"
 
-        # Upload stego and original cover images to S3
+        # Upload stego image to S3
         stego_key = upload_bytes_and_get_key(
             prefix,
             f"stego-{stego_name}",
             stego_bytes,
             stego_image.content_type or "image/png",
         )
-        orig_key = upload_bytes_and_get_key(
-            prefix,
-            f"cover-{orig_name}",
-            orig_bytes,
-            original_image.content_type or "image/png",
-        )
+
+        # Handle optional original image
+        orig_key = None
+        if original_image:
+            orig_bytes = await original_image.read()
+            orig_name = original_image.filename or "original.png"
+            orig_key = upload_bytes_and_get_key(
+                prefix,
+                f"cover-{orig_name}",
+                orig_bytes,
+                original_image.content_type or "image/png",
+            )
 
         # Enqueue Celery extract task
         task = lsb_extract_task.delay(
             stego_key=stego_key, original_key=orig_key, k_val=k_val)
 
-        return api_response(data={
+        response_data = {
             "task_id": task.id,
             "status": "PENDING",
             "check": f"/tasks/{task.id}",
             "job_id": job_id,
             "stego_key": stego_key,
-            "original_key": orig_key,
-            "notes": "Use WebSocket or /tasks/{id} until SUCCESS to get message + metrics."
-        })
+        }
+
+        if orig_key:
+            response_data["original_key"] = orig_key
+            response_data["notes"] = "Use WebSocket or /tasks/{id} until SUCCESS to get message + metrics."
+        else:
+            response_data["notes"] = "Use WebSocket or /tasks/{id} until SUCCESS to get message only (no steganography metrics)."
+
+        return api_response(data=response_data)
 
     except Exception as e:
         return api_response(
@@ -170,8 +179,8 @@ async def eceg_lsb_embed(
 @router.post("/eceg-lsb/extract")
 async def eceg_lsb_extract(
     stego_image: UploadFile = File(..., description="File stego image (PNG)"),
-    original_image: UploadFile = File(...,
-                                     description="File cover image asli (PNG)"),
+    original_image: Optional[UploadFile] = File(None,
+                                     description="File cover image asli (PNG) - optional, required for steganography metrics"),
     k_val: int = Form(
         4,
         ge=1,
@@ -183,8 +192,6 @@ async def eceg_lsb_extract(
     try:
         stego_bytes = await stego_image.read()
         stego_name = stego_image.filename or "stego.png"
-        orig_bytes = await original_image.read()
-        orig_name = original_image.filename or "original.png"
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
 
@@ -192,9 +199,14 @@ async def eceg_lsb_extract(
             prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png"
         )
 
-        original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png"
-        )
+        # Handle optional original image
+        original_key = None
+        if original_image:
+            orig_bytes = await original_image.read()
+            orig_name = original_image.filename or "original.png"
+            original_key = upload_bytes_and_get_key(
+                prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png"
+            )
 
         task = eceg_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key
@@ -239,8 +251,8 @@ async def lzw_lsb_embed(
 @router.post("/lzw-lsb/extract")
 async def lzw_lsb_extract(
     stego_image: UploadFile = File(..., description="File stego image (PNG)"),
-    original_image: UploadFile = File(...,
-                                     description="File cover image asli (PNG)"),
+    original_image: Optional[UploadFile] = File(None,
+                                     description="File cover image asli (PNG) - optional, required for steganography metrics"),
     k_val: int = Form(
         4,
         ge=1,
@@ -255,15 +267,19 @@ async def lzw_lsb_extract(
     try:
         stego_bytes = await stego_image.read()
         stego_name = stego_image.filename or "stego.png"
-        orig_bytes = await original_image.read()
-        orig_name = original_image.filename or "original.png"
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
 
         stego_key = upload_bytes_and_get_key(
             prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
-        original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
+        # Handle optional original image
+        original_key = None
+        if original_image:
+            orig_bytes = await original_image.read()
+            orig_name = original_image.filename or "original.png"
+            original_key = upload_bytes_and_get_key(
+                prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
 
         task = lzw_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val, bit_width=bit_width)
@@ -305,8 +321,8 @@ async def huffman_lsb_embed(
 @router.post("/huffman-coding-lsb/extract")
 async def huffman_lsb_extract(
     stego_image: UploadFile = File(..., description="File stego image (PNG)"),
-    original_image: UploadFile = File(...,
-                                     description="File cover image asli (PNG)"),
+    original_image: Optional[UploadFile] = File(None,
+                                     description="File cover image asli (PNG) - optional, required for steganography metrics"),
     codebook_file: UploadFile = File(...,
                                      description="File huffman codebook (.json)"),
     k_val: int = Form(
@@ -320,9 +336,6 @@ async def huffman_lsb_extract(
         stego_bytes = await stego_image.read()
         stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_image.read()
-        orig_name = original_image.filename or "original.png"
-
         codebook_bytes = await codebook_file.read()
         codebook_name = codebook_file.filename or "codebook.json"
 
@@ -330,8 +343,15 @@ async def huffman_lsb_extract(
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
             prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
-        original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
+        # Handle optional original image
+        original_key = None
+        if original_image:
+            orig_bytes = await original_image.read()
+            orig_name = original_image.filename or "original.png"
+            original_key = upload_bytes_and_get_key(
+                prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
         codebook_key = upload_bytes_and_get_key(
             prefix, f"codebook-{codebook_name}", codebook_bytes, codebook_file.content_type or "application/json"
         )
@@ -376,9 +396,9 @@ async def eceg_lzw_lsb_extract(
         ...,
         description="File gambar stego (format PNG) yang berisi data tersembunyi."
     ),
-    original_image: UploadFile = File(
-        ...,
-        description="File gambar cover asli (format PNG) untuk perbandingan metrik kualitas."
+    original_image: Optional[UploadFile] = File(
+        None,
+        description="File gambar cover asli (format PNG) untuk perbandingan metrik kualitas - optional, required for steganography metrics."
     ),
     k_val: int = Form(
         4,
@@ -399,15 +419,18 @@ async def eceg_lzw_lsb_extract(
         stego_bytes = await stego_image.read()
         stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_image.read()
-        orig_name = original_image.filename or "original.png"
-
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
             prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
-        original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
+        # Handle optional original image
+        original_key = None
+        if original_image:
+            orig_bytes = await original_image.read()
+            orig_name = original_image.filename or "original.png"
+            original_key = upload_bytes_and_get_key(
+                prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
 
         task = eceg_lzw_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, bit_width=bit_width
@@ -451,8 +474,8 @@ async def eceg_huffman_lsb_embed(
 @router.post("/eceg-huffman-coding-lsb/extract")
 async def eceg_huffman_lsb_extract(
     stego_image: UploadFile = File(..., description="File stego image (PNG)"),
-    original_image: UploadFile = File(...,
-                                     description="File cover image asli (PNG)"),
+    original_image: Optional[UploadFile] = File(None,
+                                     description="File cover image asli (PNG) - optional, required for steganography metrics"),
     codebook_file: UploadFile = File(...,
                                      description="File huffman codebook (.json)"),
     k_val: int = Form(
@@ -470,9 +493,6 @@ async def eceg_huffman_lsb_extract(
         stego_bytes = await stego_image.read()
         stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_image.read()
-        orig_name = original_image.filename or "original.png"
-
         codebook_bytes = await codebook_file.read()
         codebook_name = codebook_file.filename or "codebook.json"
 
@@ -480,8 +500,15 @@ async def eceg_huffman_lsb_extract(
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
             prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
-        original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
+        # Handle optional original image
+        original_key = None
+        if original_image:
+            orig_bytes = await original_image.read()
+            orig_name = original_image.filename or "original.png"
+            original_key = upload_bytes_and_get_key(
+                prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
         codebook_key = upload_bytes_and_get_key(
             prefix, f"codebook-{codebook_name}", codebook_bytes, codebook_file.content_type or "application/json"
         )
@@ -531,9 +558,9 @@ async def lzw_eceg_lsb_extract(
         ...,
         description="File gambar stego (format PNG) yang berisi data tersembunyi."
     ),
-    original_image: UploadFile = File(
-        ...,
-        description="File gambar cover asli (format PNG) untuk perbandingan metrik kualitas."
+    original_image: Optional[UploadFile] = File(
+        None,
+        description="File gambar cover asli (format PNG) untuk perbandingan metrik kualitas - optional, required for steganography metrics."
     ),
     k_val: int = Form(
         4,
@@ -554,15 +581,18 @@ async def lzw_eceg_lsb_extract(
         stego_bytes = await stego_image.read()
         stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_image.read()
-        orig_name = original_image.filename or "original.png"
-
         job_id = uuid4().hex
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
             prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
-        original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
+        # Handle optional original image
+        original_key = None
+        if original_image:
+            orig_bytes = await original_image.read()
+            orig_name = original_image.filename or "original.png"
+            original_key = upload_bytes_and_get_key(
+                prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
 
         task = lzw_eceg_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val,
@@ -607,8 +637,8 @@ async def huffman_eceg_lsb_embed(
 @router.post("/huffman-coding-eceg-lsb/extract")
 async def huffman_eceg_lsb_extract(
     stego_image: UploadFile = File(..., description="File stego image (PNG)"),
-    original_image: UploadFile = File(...,
-                                     description="File cover image asli (PNG)"),
+    original_image: Optional[UploadFile] = File(None,
+                                     description="File cover image asli (PNG) - optional, required for steganography metrics"),
     codebook_file: UploadFile = File(...,
                                      description="File huffman codebook (.json)"),
     k_val: int = Form(
@@ -626,9 +656,6 @@ async def huffman_eceg_lsb_extract(
         stego_bytes = await stego_image.read()
         stego_name = stego_image.filename or "stego.png"
 
-        orig_bytes = await original_image.read()
-        orig_name = original_image.filename or "original.png"
-
         codebook_bytes = await codebook_file.read()
         codebook_name = codebook_file.filename or "codebook.json"
 
@@ -636,8 +663,15 @@ async def huffman_eceg_lsb_extract(
         prefix = f"experiments/{job_id}/extract"
         stego_key = upload_bytes_and_get_key(
             prefix, f"stego-{stego_name}", stego_bytes, stego_image.content_type or "image/png")
-        original_key = upload_bytes_and_get_key(
-            prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
+        # Handle optional original image
+        original_key = None
+        if original_image:
+            orig_bytes = await original_image.read()
+            orig_name = original_image.filename or "original.png"
+            original_key = upload_bytes_and_get_key(
+                prefix, f"cover-{orig_name}", orig_bytes, original_image.content_type or "image/png")
+
         codebook_key = upload_bytes_and_get_key(
             prefix, f"codebook-{codebook_name}", codebook_bytes, codebook_file.content_type or "application/json"
         )

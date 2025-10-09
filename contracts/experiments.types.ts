@@ -12,9 +12,9 @@ export interface BaseExperimentEmbedRequest {
 
 export interface BaseExperimentExtractRequest {
   stego_image: File; // PNG stego image
-  original_image: File; // PNG original image
+  original_image?: File; // PNG original image - optional, required for steganography metrics
   k_val: number; // 1-8
-  private_key: number; // For ECEG decryption
+  private_key?: number; // For ECEG decryption
 }
 
 // Base response types
