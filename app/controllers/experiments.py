@@ -642,7 +642,7 @@ async def huffman_eceg_lsb_extract(
             prefix, f"codebook-{codebook_name}", codebook_bytes, codebook_file.content_type or "application/json"
         )
 
-        task = eceg_huffman_coding_lsb_extract_task.delay(
+        task = huffman_coding_eceg_lsb_extract_task.delay(
             stego_key=stego_key, original_key=original_key, k_val=k_val, private_key=private_key, codebook_key=codebook_key
         )
         return api_response(data={"task_id": task.id, "status": "PENDING"})
