@@ -66,14 +66,15 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str, plai
 
 
 @celery.task(name="tasks.experiments.lzw_lsb.extract_task", bind=True)
-def extract_task(self, *, stego_key: str, original_key: str, k_val: int, bit_width: int):
+def extract_task(self, *, stego_key: str, original_key: Optional[str], k_val: int, bit_width: int):
     self.update_state(state="STARTED", meta={
                       "stage": "Initializing", "progress": 10})
     stego_path = original_path = None
     try:
         # 1. Unduh Gambar & Ekstrak Pesan (Bit Terkompresi)
         stego_path = download_to_tmp(S3_BUCKET, stego_key)
-        original_path = download_to_tmp(S3_BUCKET, original_key)
+        if original_key:
+            original_path = download_to_tmp(S3_BUCKET, original_key)
         lsb = LeastSignificantBit(k_val=k_val)
         extracted_bits = lsb.extract_message(stego_path)
         self.update_state(
@@ -88,9 +89,6 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, bit_wid
         self.update_state(meta={"stage": "Plaintext Ready", "progress": 80})
 
         # 4. Hitung Metrik (Steganografi & Kompresi)
-        stego_metrics_calc = StegoMetrics(ori_image=original_path)
-        mse, psnr, ssim = stego_metrics_calc.calculate_metrics(stego_path)
-
         original_size_bytes = len(decompressed_message_block) * 8
         compressed_size_bytes = len(extracted_bits)
 
@@ -100,12 +98,20 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int, bit_wid
             compressed_size_bytes=compressed_size_bytes)
 
         metrics_dict = {
-            "mse": float(mse) if mse != float("inf") else "inf",
-            "psnr": float(psnr) if psnr != float("inf") else "inf",
-            "ssim": float(ssim) if ssim != float("inf") else "inf",
             "cr": float(cr) if cr != float("inf") else "inf",
-            "ss": float(ss) if ss != float("inf") else "inf"
+            "ss": float(ss) if ss != float("inf") else "inf",
+            "sl": None
         }
+
+        # Only calculate steganography metrics if original image is available
+        if original_path:
+            stego_metrics_calc = StegoMetrics(ori_image=original_path)
+            mse, psnr, ssim = stego_metrics_calc.calculate_metrics(stego_path)
+            metrics_dict.update({
+                "mse": float(mse) if mse != float("inf") else "inf",
+                "psnr": float(psnr) if psnr != float("inf") else "inf",
+                "ssim": float(ssim) if ssim != float("inf") else "inf"
+            })
 
         # Mengembalikan satu objek dengan record yang sesuai
         return {

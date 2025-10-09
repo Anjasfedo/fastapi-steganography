@@ -73,7 +73,7 @@ def embed_task(self, *, cover_key: str, k_val: int, original_filename: str,
 
 
 @celery.task(name="tasks.experiments.lsb.extract_task", bind=True)
-def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
+def extract_task(self, *, stego_key: str, original_key: Optional[str], k_val: int):
     """
     Mengekstrak plaintext dari stego image dan menghitung metrik.
     """
@@ -83,7 +83,8 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
     try:
         # --- LANGKAH 1: Unduh Gambar Stego & Asli ---
         stego_path = download_to_tmp(S3_BUCKET, stego_key)
-        original_path = download_to_tmp(S3_BUCKET, original_key)
+        if original_key:
+            original_path = download_to_tmp(S3_BUCKET, original_key)
         self.update_state(
             meta={"stage": "Extracting raw message", "progress": 30})
 
@@ -94,24 +95,30 @@ def extract_task(self, *, stego_key: str, original_key: str, k_val: int):
 
         self.update_state(meta={"stage": "Plaintext Extracted", "progress": 80})
 
-        # --- Sisa langkah (Menghitung Metrik) tetap sama ---
-        metrics_calc = StegoMetrics(ori_image=original_path)
-        mse, psnr, ssim = metrics_calc.calculate_metrics(stego_path)
-        original_size = len(extracted_bits)
-        compressed_size = len(extracted_bits)
+        # --- Sisa langkah (Menghitung Metrik) - hanya jika original image ada ---
+        metrics_dict = {}
+        if original_path:
+            metrics_calc = StegoMetrics(ori_image=original_path)
+            mse, psnr, ssim = metrics_calc.calculate_metrics(stego_path)
 
-        metrics_calculator = CompressionMetrics(
-            original_size_bytes=original_size)
-        cr, ss = metrics_calculator.calculate_all_metrics(
-            compressed_size_bytes=compressed_size)
+            original_size = len(extracted_bits)
+            compressed_size = len(extracted_bits)
 
-        metrics_dict = {
-            "mse": float(mse) if mse != float("inf") else "inf",
-            "psnr": float(psnr) if psnr != float("inf") else "inf",
-            "ssim": float(ssim) if ssim != float("inf") else "inf",
-            "cr": float(cr) if cr != float("inf") else "inf",
-            "ss": float(ss) if ss != float("inf") else "inf"
-        }
+            metrics_calculator = CompressionMetrics(
+                original_size_bytes=original_size)
+            cr, ss = metrics_calculator.calculate_all_metrics(
+                compressed_size_bytes=compressed_size)
+
+            metrics_dict = {
+                "mse": float(mse) if mse != float("inf") else "inf",
+                "psnr": float(psnr) if psnr != float("inf") else "inf",
+                "ssim": float(ssim) if ssim != float("inf") else "inf",
+                "cr": float(cr) if cr != float("inf") else "inf",
+                "ss": float(ss) if ss != float("inf") else "inf"
+            }
+
+        # Add security level metric (None for non-ECEG methods)
+        metrics_dict["sl"] = None
 
         # Mengembalikan satu objek dengan record
         return {

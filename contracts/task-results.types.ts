@@ -22,6 +22,9 @@ export interface LsbExtractTaskResult {
     mse: number | "inf";
     psnr: number | "inf";
     ssim: number | "inf";
+    cr: number | "inf";
+    ss: number | "inf";
+    sl: number | null; // Security level: null for non-ECEG methods
   };
 }
 
@@ -42,6 +45,7 @@ export interface EcegLsbExtractTaskResult {
     ssim: number | "inf";
     cr: number | "inf";
     ss: number | "inf";
+    sl: number; // Security level: 256 for ECEG methods (2^8)
   };
 }
 
@@ -63,6 +67,7 @@ export interface EcegLzwLsbExtractTaskResult {
     ssim: number | "inf";
     cr: number | "inf";
     ss: number | "inf";
+    sl: number; // Security level: 256 for ECEG methods (2^8)
   };
 }
 
@@ -85,6 +90,7 @@ export interface EcegHuffmanLsbExtractTaskResult {
     ssim: number | "inf";
     cr: number | "inf";
     ss: number | "inf";
+    sl: number; // Security level: 256 for ECEG methods (2^8)
   };
 }
 
@@ -106,6 +112,7 @@ export interface LzwEcegLsbExtractTaskResult {
     ssim: number | "inf";
     cr: number | "inf";
     ss: number | "inf";
+    sl: number; // Security level: 256 for ECEG methods (2^8)
   };
 }
 
@@ -128,6 +135,7 @@ export interface HuffmanEcegLsbExtractTaskResult {
     ssim: number | "inf";
     cr: number | "inf";
     ss: number | "inf";
+    sl: number; // Security level: 256 for ECEG methods (2^8)
   };
 }
 
@@ -147,6 +155,7 @@ export interface LzwLsbExtractTaskResult {
     ssim: number | "inf";
     cr: number | "inf";
     ss: number | "inf";
+    sl: number | null; // Security level: null for non-ECEG methods
   };
 }
 
@@ -167,6 +176,7 @@ export interface HuffmanLsbExtractTaskResult {
     ssim: number | "inf";
     cr: number | "inf";
     ss: number | "inf";
+    sl: number | null; // Security level: null for non-ECEG methods
   };
 }
 
