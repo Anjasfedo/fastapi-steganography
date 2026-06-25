@@ -57,6 +57,20 @@ async def task_status_ws(websocket: WebSocket, task_id: str):
         if info:
             payload.update(info)
 
+        # If the task is already finished by the time the client connects,
+        # send the terminal payload (with result/error) and close — otherwise
+        # the client never receives the result.
+        if result.state == "SUCCESS":
+            payload["result"] = result.get()
+            await websocket.send_json(payload)
+            await websocket.close(code=1000)
+            return
+        elif result.state == "FAILURE":
+            payload["error"] = str(result.info)
+            await websocket.send_json(payload)
+            await websocket.close(code=1011)
+            return
+
         await websocket.send_json(payload)
 
         last_state = None
