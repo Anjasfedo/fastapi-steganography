@@ -8,5 +8,6 @@ venv/
 .env
 .git/
 .gitignore
+.codegraph/
 Dockerfile
 docker-compose.yml
