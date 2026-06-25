@@ -18,7 +18,7 @@ class LeastSignificantBit:
         Menghitung jumlah maksimum karakter yang dapat disimpan dalam gambar,
         dan melempar error jika kapasitas melebihi batas header 32-bit.
         """
-        image = Image.open(image_path)
+        image = Image.open(image_path).convert("RGB")
         img_data = np.array(image)
 
         height, width, channels = img_data.shape
@@ -84,7 +84,7 @@ class LeastSignificantBit:
         """
         message_bits = self.message_to_bits(message)
 
-        image = Image.open(input_image_path)
+        image = Image.open(input_image_path).convert("RGB")
         img_data = np.array(image)
 
         height, width, channels = img_data.shape
@@ -119,7 +119,7 @@ class LeastSignificantBit:
         """
         Extract a hidden message from an image that uses LSB encoding.
         """
-        image = Image.open(stego_image_path)
+        image = Image.open(stego_image_path).convert("RGB")
         img_data = np.array(image)
 
         height, width, channels = img_data.shape
