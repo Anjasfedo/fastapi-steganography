@@ -9,6 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Install supervisor DAN dependensi sistem yang dibutuhkan oleh OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
+    redis-server \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,8 +26,8 @@ COPY . .
 # Salin file konfigurasi supervisor
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Expose port FastAPI
-EXPOSE 5000
+# Expose port FastAPI (HF Spaces requires 7860)
+EXPOSE 7860
 
 # Perintah default untuk menjalankan supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

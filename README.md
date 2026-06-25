@@ -1,3 +1,13 @@
+---
+title: Steganography API
+emoji: 🖼️
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Steganography API
 
 A comprehensive steganography API with various embedding and extraction techniques including LSB, ECEG, LZW compression, and Huffman coding.
