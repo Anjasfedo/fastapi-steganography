@@ -44,5 +44,15 @@ def download_to_tmp(bucket: str, key: str) -> str:
     suffix = os.path.splitext(key)[1] or ".png"
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     tmp.close()
-    s3.download_file(bucket, key, tmp.name)
+    try:
+        s3.download_file(bucket, key, tmp.name)
+    except Exception:
+        # Download failed: caller never receives the path, so it cannot clean
+        # up. Remove the orphan temp file here before re-raising.
+        if os.path.exists(tmp.name):
+            try:
+                os.remove(tmp.name)
+            except OSError:
+                pass
+        raise
     return tmp.name
